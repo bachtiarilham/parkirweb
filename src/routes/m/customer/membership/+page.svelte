@@ -24,6 +24,8 @@
 		successMessage = null;
 	}
 
+	import { deserialize } from '$app/forms';
+
 	async function submitCheckout() {
 		if (!selectedPlan) return;
 		if (!licensePlate.trim()) {
@@ -35,21 +37,24 @@
 		errorMessage = null;
 
 		try {
-			const res = await fetch(API_ENDPOINTS.MEMBERSHIP.RIDER_CONTRACTS.BASE, {
+			const formData = new FormData();
+			formData.append('plan_id', String(selectedPlan.member_rider_plan_id || selectedPlan.id));
+			formData.append('license_plate', licensePlate.toUpperCase().trim());
+
+			const res = await fetch('?/subscribe', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					plan_id: selectedPlan.member_rider_plan_id || selectedPlan.id,
-					rfid_card_no: licensePlate.toUpperCase().trim()
-				})
+				body: formData
 			});
 
-			const result = await res.json();
-			if (!res.ok || !result.success) {
-				throw new Error(result.message || 'Gagal memproses checkout paket');
+			const text = await res.text();
+			const result = deserialize(text) as any;
+			const dataRes = (result.type === 'success' ? result.data : result.data) || {};
+
+			if (!res.ok || result.type !== 'success' || !dataRes.success) {
+				throw new Error(dataRes.message || 'Gagal memproses checkout paket');
 			}
 
-			const { snap_token, snap_redirect_url } = result.data || {};
+			const { snap_token, snap_redirect_url } = dataRes.data || {};
 
 			if (typeof window !== 'undefined' && (window as any).snap && snap_token) {
 				(window as any).snap.pay(snap_token, {

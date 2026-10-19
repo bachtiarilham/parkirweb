@@ -9,6 +9,7 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
+	import { deserialize } from '$app/forms';
 	import { API_ENDPOINTS } from '$lib/api/endpoints.js';
 
 	let videoElement: HTMLVideoElement | null = $state(null);
@@ -104,20 +105,17 @@
 			formData.append('image', blob, 'camera_capture.jpg');
 			formData.append('file', blob, 'camera_capture.jpg');
 
-			const res = await fetch(API_ENDPOINTS.OCR.LICENSE_PLATE, {
+			const res = await fetch('?/ocr', {
 				method: 'POST',
 				body: formData
 			});
 
-			const data = await res.json().catch(() => null);
+			const text = await res.text();
+			const result = deserialize(text) as any;
+			const data = (result.type === 'success' ? result.data : result.data) || {};
 
-			if (res.status === 401) {
-				errorMessage = 'Sesi Anda telah berakhir atau belum login. Silakan login kembali.';
-				return;
-			}
-
-			if (res.ok && data?.success) {
-				const plate = (data.plate_number || data.data?.plate_number || data.plate || '').trim().toUpperCase();
+			if (result.type === 'success' && data.success) {
+				const plate = (data.plate_number || data.data?.plate_number || '').trim().toUpperCase();
 				if (plate) {
 					detectedPlate = plate;
 					showBottomSheet = true;
@@ -125,7 +123,7 @@
 					errorMessage = 'Plat nomor tidak terdeteksi. Silakan coba lagi atau input manual.';
 				}
 			} else {
-				errorMessage = data?.message || 'Gagal mendeteksi plat nomor kendaraan';
+				errorMessage = data.message || 'Gagal mendeteksi plat nomor kendaraan';
 			}
 		} catch (err: any) {
 			console.error('OCR Error:', err);
@@ -148,20 +146,17 @@
 			formData.append('image', file, file.name);
 			formData.append('file', file, file.name);
 
-			const res = await fetch(API_ENDPOINTS.OCR.LICENSE_PLATE, {
+			const res = await fetch('?/ocr', {
 				method: 'POST',
 				body: formData
 			});
 
-			const data = await res.json().catch(() => null);
+			const text = await res.text();
+			const result = deserialize(text) as any;
+			const data = (result.type === 'success' ? result.data : result.data) || {};
 
-			if (res.status === 401) {
-				errorMessage = 'Sesi Anda telah berakhir atau belum login. Silakan login kembali.';
-				return;
-			}
-
-			if (res.ok && data?.success) {
-				const plate = (data.plate_number || data.data?.plate_number || data.plate || '').trim().toUpperCase();
+			if (result.type === 'success' && data.success) {
+				const plate = (data.plate_number || data.data?.plate_number || '').trim().toUpperCase();
 				if (plate) {
 					detectedPlate = plate;
 					showBottomSheet = true;
@@ -169,7 +164,7 @@
 					errorMessage = 'Plat nomor tidak terdeteksi pada gambar.';
 				}
 			} else {
-				errorMessage = data?.message || 'Gagal mendeteksi plat nomor dari galeri.';
+				errorMessage = data.message || 'Gagal mendeteksi plat nomor dari galeri.';
 			}
 		} catch (err: any) {
 			console.error('Gallery OCR Error:', err);

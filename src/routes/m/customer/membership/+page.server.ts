@@ -64,3 +64,48 @@ export const load: PageServerLoad = async ({ fetch, parent }) => {
 		activeContract
 	};
 };
+
+import { fail, type Actions } from '@sveltejs/kit';
+import { apiClient } from '$lib/server/api/client.js';
+import { API_ENDPOINTS } from '$lib/api/endpoints.js';
+
+export const actions: Actions = {
+	subscribe: async ({ request, fetch }) => {
+		try {
+			const formData = await request.formData();
+			const planId = formData.get('plan_id');
+			const licensePlate = formData.get('license_plate');
+
+			if (!licensePlate) {
+				return fail(400, { success: false, message: 'Nomor plat kendaraan wajib diisi' });
+			}
+
+			const payload = {
+				plan_id: Number(planId || 1),
+				rfid_card_no: String(licensePlate).trim().toUpperCase(),
+				license_plates: String(licensePlate).trim().toUpperCase()
+			};
+
+			const response = await apiClient.raw<any>(
+				API_ENDPOINTS.MEMBERSHIP.RIDER_CONTRACTS.BASE,
+				{
+					method: 'POST',
+					body: JSON.stringify(payload),
+					fetch
+				}
+			);
+
+			return {
+				success: true,
+				data: response?.data || response
+			};
+		} catch (err: any) {
+			console.error('[Action Subscribe Error]:', err);
+			return fail(err.status || 500, {
+				success: false,
+				message: err.message || 'Gagal memproses langganan membership'
+			});
+		}
+	}
+};
+

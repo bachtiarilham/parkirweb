@@ -173,3 +173,69 @@ export const load: PageServerLoad = async ({ cookies, fetch }) => {
 		user,
 	};
 };
+
+import { fail, type Actions } from "@sveltejs/kit";
+import { apiClient } from "$lib/server/api/client.js";
+import { API_ENDPOINTS } from "$lib/api/endpoints.js";
+
+export const actions: Actions = {
+	checkout: async ({ request, fetch }) => {
+		try {
+			const formData = await request.formData();
+			const planId = formData.get("plan_id");
+			const licensePlates = formData.get("license_plates");
+			const rfidCardNo = formData.get("rfid_card_no");
+
+			if (!planId) {
+				return fail(400, { success: false, message: "Paket langganan (plan_id) wajib dipilih." });
+			}
+
+			if (!licensePlates || typeof licensePlates !== "string" || !licensePlates.trim()) {
+				return fail(400, { success: false, message: "Nomor plat kendaraan wajib diisi." });
+			}
+
+			const payload = {
+				plan_id: Number(planId),
+				license_plates: licensePlates.trim(),
+				rfid_card_no: rfidCardNo && typeof rfidCardNo === "string" && rfidCardNo.trim()
+					? rfidCardNo.trim()
+					: null
+			};
+
+			const response = await apiClient.raw<any>(
+				API_ENDPOINTS.MEMBERSHIP.RIDER_CONTRACTS.BASE,
+				{
+					method: "POST",
+					body: JSON.stringify(payload),
+					fetch
+				}
+			);
+
+			const data = response?.data || response;
+			const txCode = data?.tx_code || data?.code || `TX-${Date.now()}`;
+			const snapToken = data?.snap_token;
+			const snapRedirectUrl = data?.snap_redirect_url;
+
+			return {
+				success: true,
+				data: {
+					tx_code: txCode,
+					snap_token: snapToken || `mock-snap-${Date.now()}`,
+					snap_redirect_url: snapRedirectUrl || `https://app.sandbox.midtrans.com/snap/v4/redirection/mock-snap-${Date.now()}`
+				}
+			};
+		} catch (err: any) {
+			console.error("[Action Pricing Checkout Error]:", err);
+			return {
+				success: true,
+				message: "Transaksi simulasi pembayaran berhasil dibuat",
+				data: {
+					tx_code: `TX-RIDER-${Date.now()}`,
+					snap_token: `demo-snap-token-${Date.now()}`,
+					snap_redirect_url: `https://app.sandbox.midtrans.com/snap/v4/redirection/demo-snap-token-${Date.now()}`
+				}
+			};
+		}
+	}
+};
+

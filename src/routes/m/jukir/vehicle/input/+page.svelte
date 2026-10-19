@@ -32,6 +32,8 @@
 		TRUK: { name: 'Truk / Bus', price: 10000, label: 'Rp 10.000 / jam' }
 	};
 
+	import { deserialize } from '$app/forms';
+
 	async function handleSubmit() {
 		const cleanPlate = plateNumber.trim().toUpperCase();
 		if (!cleanPlate) {
@@ -51,30 +53,31 @@
 			const idempotencyKey = `chk_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 			const branchId = data.user?.branchId || 1;
 
-			const res = await fetch(API_ENDPOINTS.PARKING.SESSIONS.CHECKIN, {
+			const formData = new FormData();
+			formData.append('plate_number', cleanPlate);
+			formData.append('vehicle_type', selectedVehicle);
+			formData.append('branch_id', String(branchId));
+			formData.append('idempotency_key', idempotencyKey);
+
+			const res = await fetch('?/checkin', {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'X-Idempotency-Key': idempotencyKey
-				},
-				body: JSON.stringify({
-					plate_number: cleanPlate,
-					vehicle_type: selectedVehicle,
-					branch_id: Number(branchId)
-				})
+				body: formData
 			});
 
-			const result = await res.json().catch(() => ({}));
+			const text = await res.text();
+			const result = deserialize(text) as any;
+			const dataRes = (result.type === 'success' ? result.data : result.data) || {};
 
-			if (res.ok && (result.success || result.data?.id)) {
-				const sessionId = result.data?.id || `TKT-${Date.now()}`;
-				const snapToken = result.data?.snap_token || '';
+			if (result.type === 'success' && dataRes.success) {
+				const sessionData = dataRes.data || {};
+				const sessionId = sessionData.id || `TKT-${Date.now()}`;
+				const snapToken = sessionData.snap_token || '';
 				const amount = vehicleTariffs[selectedVehicle].price;
 
 				// Navigate to JukirSessionDetail screen matching Screen.JukirSessionDetail.createRoute
 				goto(`/m/jukir/session/detail/${sessionId}?snapToken=${encodeURIComponent(snapToken)}&amount=${amount}`);
 			} else {
-				errorMessage = result.message || 'Gagal memulai sesi parkir. Silakan coba lagi.';
+				errorMessage = dataRes.message || 'Gagal memulai sesi parkir. Silakan coba lagi.';
 			}
 		} catch (err: any) {
 			errorMessage = err.message || 'Terjadi kesalahan jaringan. Periksa koneksi Anda.';

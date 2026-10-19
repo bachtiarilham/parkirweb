@@ -36,6 +36,8 @@
 
 	const selectedPlan = $derived(plans.find((p) => p.id === selectedPlanId) || plans[0]);
 
+	import { deserialize } from '$app/forms';
+
 	async function handlePurchase() {
 		if (!plateNumber.trim()) {
 			alert('Nomor polisi kendaraan wajib diisi');
@@ -44,16 +46,17 @@
 
 		isSubmitting = true;
 		try {
-			// Trigger contract create API
-			const res = await fetch(API_ENDPOINTS.MEMBERSHIP.RIDER_CONTRACTS.BASE, {
+			const formData = new FormData();
+			formData.append('plan_id', String(selectedPlanId === 'monthly' ? 1 : 2));
+			formData.append('plate_number', plateNumber.trim().toUpperCase());
+			formData.append('vehicle_type', vehicleType);
+
+			const res = await fetch('?/purchase', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					plan_id: selectedPlanId === 'monthly' ? 1 : 2,
-					rfid_card_no: plateNumber.trim().toUpperCase(),
-					vehicle_type: vehicleType
-				})
-			}).catch(() => null);
+				body: formData
+			});
+			const text = await res.text();
+			deserialize(text);
 
 			paymentSuccess = true;
 		} catch {

@@ -44,6 +44,8 @@
 		}
 	}
 
+	import { deserialize } from '$app/forms';
+
 	async function triggerSync() {
 		if (!isOnline || isSyncing || pendingOfflineCount === 0) return;
 		isSyncing = true;
@@ -52,24 +54,27 @@
 			for (const item of items) {
 				try {
 					await offlineStorage.updateStatus(item.id, 'SYNCING');
-					const res = await fetch(API_ENDPOINTS.PARKING.SESSIONS.CHECKIN, {
+					const formData = new FormData();
+					formData.append('plate_number', item.plate_number);
+					formData.append('vehicle_type', item.vehicle_type);
+					formData.append('branch_id', String(item.branch_id));
+					formData.append('idempotency_key', item.idempotency_key);
+					if (item.gate_id) formData.append('gate_id', String(item.gate_id));
+
+					const res = await fetch('/m/jukir/vehicle/input?/checkin', {
 						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							'X-Idempotency-Key': item.idempotency_key
-						},
-						body: JSON.stringify({
-							plate_number: item.plate_number,
-							vehicle_type: item.vehicle_type,
-							branch_id: item.branch_id,
-							gate_id: item.gate_id
-						})
+						body: formData
 					});
-					if (res.ok) {
+
+					const text = await res.text();
+					const result = deserialize(text) as any;
+					const dataRes = (result.type === 'success' ? result.data : result.data) || {};
+
+					if (result.type === 'success' && dataRes.success) {
 						await offlineStorage.removePendingCheckIn(item.id);
 					} else {
-						const err = await res.json().catch(() => ({}));
-						await offlineStorage.updateStatus(item.id, 'FAILED', err.message || 'Gagal sinkron');
+						const errMessage = dataRes.message || 'Gagal sinkron';
+						await offlineStorage.updateStatus(item.id, 'FAILED', errMessage);
 					}
 				} catch (err: any) {
 					await offlineStorage.updateStatus(item.id, 'FAILED', err.message);

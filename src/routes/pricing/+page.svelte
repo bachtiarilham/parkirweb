@@ -26,6 +26,7 @@
 	import UserPlusIcon from "@lucide/svelte/icons/user-plus";
 	import LockIcon from "@lucide/svelte/icons/lock";
 	import { toast } from "svelte-sonner";
+	import { deserialize } from "$app/forms";
 
 	let { data } = $props();
 	const plans = $derived(data.plans || []);
@@ -144,25 +145,27 @@
 		isSubmitting = true;
 
 		try {
-			const res = await fetch(API_ENDPOINTS.MEMBERSHIP.RIDER_CONTRACTS.BASE, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					plan_id: selectedPlan.member_rider_plan_id,
-					license_plates: combinedPlates,
-					rfid_card_no: rfidCardNo.trim() ? rfidCardNo.trim() : null,
-				}),
-			});
-
-			const result = await res.json();
-
-			if (!res.ok || !result.success) {
-				throw new Error(result.message || "Gagal memproses pendaftaran");
+			const formData = new FormData();
+			formData.append("plan_id", String(selectedPlan.member_rider_plan_id));
+			formData.append("license_plates", combinedPlates);
+			if (rfidCardNo.trim()) {
+				formData.append("rfid_card_no", rfidCardNo.trim());
 			}
 
-			const { snap_token, snap_redirect_url, tx_code } = result.data || {};
+			const res = await fetch("?/checkout", {
+				method: "POST",
+				body: formData
+			});
+
+			const text = await res.text();
+			const result = deserialize(text) as any;
+			const dataRes = (result.type === 'success' ? result.data : result.data) || {};
+
+			if (!res.ok || result.type !== 'success' || !dataRes.success) {
+				throw new Error(dataRes.message || "Gagal memproses pendaftaran");
+			}
+
+			const { snap_token, snap_redirect_url, tx_code } = dataRes.data || {};
 
 			toast.success(`Transaksi ${tx_code || ""} siap dibayar`);
 
