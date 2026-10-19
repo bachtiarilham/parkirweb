@@ -110,45 +110,26 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const userContext = getUserContext(event.cookies);
 	const isAuthenticated = Boolean(userContext && accessToken);
 
-	// E. Centralized Route Guard
+	// E. Centralized Route Guard (LineSpot Mobile 1:1)
 	const pathname = event.url.pathname;
-	const isAuthRoute =
-		pathname.startsWith("/login") ||
-		pathname.startsWith("/register") ||
-		pathname.startsWith("/forgot-password") ||
-		pathname.startsWith("/reset-password") ||
-		pathname.startsWith("/m/login");
-
+	const isAuthRoute = pathname.startsWith("/m/login");
 	const isPublicRoute =
 		pathname === "/" ||
-		pathname === "/pricing" ||
-		pathname.startsWith("/pricing") ||
 		pathname.startsWith("/m/customer") ||
 		pathname.startsWith("/m/ticket");
 
-	// Jika belum login (cookies tidak ada) tapi mengakses halaman privat -> redirect ke login
+	// Jika belum login (cookies tidak ada) tapi mengakses halaman privat -> redirect ke /m/login
 	if (!isAuthenticated && !isAuthRoute && !isPublicRoute && !pathname.startsWith("/api")) {
-		if (pathname.startsWith("/m")) {
-			redirect(302, "/m/login");
-		}
-		redirect(302, "/login");
+		redirect(302, "/m/login");
 	}
 
-	// Jika sudah login tapi mengakses halaman auth -> redirect ke dashboard sesuai role
+	// Jika sudah login tapi mengakses halaman login -> redirect ke halaman utama sesuai role
 	if (isAuthenticated && isAuthRoute && userContext) {
 		const rawRole = (userContext.roleCode || "").toUpperCase();
-		if (rawRole.includes("OFFICER") || rawRole.includes("JUKIR")) {
+		if (rawRole.includes("OFFICER") || rawRole.includes("JUKIR") || rawRole.includes("OPERATOR")) {
 			redirect(302, "/m/jukir");
-		} else if (rawRole.includes("TENANT")) {
-			redirect(302, "/dashboard/tenant");
-		} else if (rawRole.includes("BRANCH")) {
-			redirect(302, "/dashboard/branch");
-		} else if (rawRole.includes("SYSTEM") || rawRole.includes("SUPER")) {
-			redirect(302, "/dashboard/system");
-		} else if (rawRole.includes("CUSTOMER")) {
-			redirect(302, "/m/customer");
 		} else {
-			redirect(302, "/");
+			redirect(302, "/m/customer");
 		}
 	}
 

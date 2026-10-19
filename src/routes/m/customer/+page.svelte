@@ -147,14 +147,15 @@
 				<span class="text-[11px] font-bold leading-tight">Riwayat</span>
 			</a>
 
-			<!-- 3. Scan QR Masuk -->
-			<a
-				href="/m/customer/ticket"
+			<!-- 3. Scan QR Masuk (Identik CustomerDashboardScreen.kt) -->
+			<button
+				type="button"
+				onclick={() => alert('Fitur Scan QR Masuk akan segera hadir.')}
 				class="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-[#03045E] transition active:scale-95 text-center"
 			>
 				<QrCodeIcon class="w-5 h-5 text-[#0077B6] mb-1" />
-				<span class="text-[11px] font-bold leading-tight">Tiket QR</span>
-			</a>
+				<span class="text-[11px] font-bold leading-tight">Scan QR</span>
+			</button>
 		</div>
 	</LiquidGlassCard>
 
