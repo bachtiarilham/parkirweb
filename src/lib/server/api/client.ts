@@ -61,9 +61,10 @@ export async function apiClient<T = unknown>(
 	} = options;
 
 	const baseUrl = (
-		env.BACKEND_API_URL ||
-		process.env.BACKEND_API_URL ||
-		"https://nonstatutory-wonda-preadherently.ngrok-free.dev"
+		env.BACKEND_API_URL 
+    // ||
+		// process.env.BACKEND_API_URL ||
+		// "https://nonstatutory-wonda-preadherently.ngrok-free.dev"
 	).replace(/\/+$/, "");
 
 	let cleanEndpoint = endpoint.replace(/^\/+/, "");
