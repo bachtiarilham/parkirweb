@@ -62,9 +62,9 @@ export async function apiClient<T = unknown>(
 
 	const baseUrl = (
 		env.BACKEND_API_URL 
-    // ||
-		// process.env.BACKEND_API_URL ||
-		// "https://nonstatutory-wonda-preadherently.ngrok-free.dev"
+    ||
+		process.env.BACKEND_API_URL ||
+		"https://nonstatutory-wonda-preadherently.ngrok-free.dev"
 	).replace(/\/+$/, "");
 
 	let cleanEndpoint = endpoint.replace(/^\/+/, "");
@@ -103,7 +103,9 @@ export async function apiClient<T = unknown>(
 		...((customHeaders as Record<string, string>) || {}),
 	};
 
-	const fetchFn = customFetch || fetch;
+	// Gunakan global fetch murni di server agar tidak mewarisi header browser (Origin/Referer)
+	// yang dapat memicu CORS 403 di backend Go
+	const fetchFn = fetch;
 
 	console.log(`[Backend Call] ${fetchOptions.method || "GET"} ${url}`, {
 		headers,
@@ -117,11 +119,13 @@ export async function apiClient<T = unknown>(
 			headers,
 		});
 	} catch (networkError: unknown) {
+		const cause = (networkError as { cause?: unknown })?.cause;
+		console.error(`[Backend Call Failed] ${url}:`, networkError, "Cause:", cause);
 		const msg =
 			networkError instanceof Error
-				? networkError.message
+				? `${networkError.message}${cause ? ` (${(cause as Error)?.message || cause})` : ""}`
 				: "Gagal terhubung ke server backend eksternal";
-		throw new ApiError(msg, 503, { originalError: networkError });
+		throw new ApiError(msg, 503, { originalError: networkError, cause });
 	}
 
 	const contentType = response.headers.get("content-type");

@@ -6,10 +6,9 @@
 	import ZapOffIcon from '@lucide/svelte/icons/zap-off';
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import KeyboardIcon from '@lucide/svelte/icons/keyboard';
-	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
+	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
-	import Edit3Icon from '@lucide/svelte/icons/edit-3';
-	import LiquidGlassCard from '$lib/components/ui/liquid-glass/LiquidGlassCard.svelte';
+	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
 
 	let videoElement: HTMLVideoElement | null = $state(null);
 	let stream: MediaStream | null = $state(null);
@@ -73,83 +72,107 @@
 		errorMessage = '';
 
 		try {
-			// Ambil frame dari video
-			let plateResult = '';
-			if (videoElement && videoElement.videoWidth) {
-				const canvas = document.createElement('canvas');
-				canvas.width = videoElement.videoWidth;
-				canvas.height = videoElement.videoHeight;
-				const ctx = canvas.getContext('2d');
-				if (ctx) {
-					ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-					const blob = await new Promise<Blob | null>((resolve) =>
-						canvas.toBlob(resolve, 'image/jpeg', 0.85)
-					);
-					if (blob) {
-						const formData = new FormData();
-						formData.append('image', blob, 'capture.jpg');
-						const res = await fetch('/api/m/ocr', {
-							method: 'POST',
-							body: formData
-						}).catch(() => null);
-
-						if (res && res.ok) {
-							const data = await res.json();
-							plateResult = (data.plate || '').trim().toUpperCase();
-						}
-					}
-				}
+			if (!videoElement || !videoElement.videoWidth) {
+				errorMessage = 'Preview kamera belum siap';
+				isProcessing = false;
+				return;
 			}
 
-			// Fallback simulated OCR if backend model unavailable
-			// if (!plateResult) {
-			// 	const mockRandom = Math.floor(1000 + Math.random() * 9000);
-			// 	const mockSuffixes = ['XYZ', 'ABC', 'BCA', 'EFP', 'JKT', 'SLO'];
-			// 	const suffix = mockSuffixes[Math.floor(Math.random() * mockSuffixes.length)];
-			// 	plateResult = `AB ${mockRandom} ${suffix}`;
-			// }
+			const canvas = document.createElement('canvas');
+			canvas.width = videoElement.videoWidth;
+			canvas.height = videoElement.videoHeight;
+			const ctx = canvas.getContext('2d');
+			if (!ctx) {
+				errorMessage = 'Gagal memproses frame kamera';
+				isProcessing = false;
+				return;
+			}
 
-			detectedPlate = plateResult;
-			showBottomSheet = true;
+			ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+			const blob = await new Promise<Blob | null>((resolve) =>
+				canvas.toBlob(resolve, 'image/jpeg', 0.90)
+			);
+
+			if (!blob) {
+				errorMessage = 'Gagal mengonversi gambar';
+				isProcessing = false;
+				return;
+			}
+
+			const formData = new FormData();
+			formData.append('file', blob, 'camera_capture.jpg');
+			formData.append('image', blob, 'camera_capture.jpg');
+
+			const res = await fetch('/api/m/ocr', {
+				method: 'POST',
+				body: formData
+			});
+
+			const data = await res.json().catch(() => null);
+
+			if (res.ok && data?.success) {
+				const plate = (data.plate_number || data.data?.plate_number || data.plate || '').trim().toUpperCase();
+				if (plate) {
+					detectedPlate = plate;
+					showBottomSheet = true;
+				} else {
+					errorMessage = 'Plat nomor tidak terdeteksi. Silakan coba lagi atau input manual.';
+				}
+			} else {
+				errorMessage = data?.message || 'Gagal mendeteksi plat nomor kendaraan';
+			}
 		} catch (err: any) {
-			errorMessage = err.message || 'Gagal mendeteksi plat';
+			console.error('OCR Error:', err);
+			errorMessage = err.message || 'Gagal memproses gambar OCR';
 		} finally {
 			isProcessing = false;
 		}
 	}
 
-	function handleGallerySelect(event: Event) {
+	async function handleGallerySelect(event: Event) {
 		const target = event.target as HTMLInputElement;
 		const file = target.files?.[0];
 		if (!file) return;
 
 		isProcessing = true;
-		const formData = new FormData();
-		formData.append('image', file);
+		errorMessage = '';
 
-		fetch('/api/m/ocr', {
-			method: 'POST',
-			body: formData
-		})
-			.then((res) => (res.ok ? res.json() : null))
-			.then((data) => {
-				const plate = data?.plate || `B ${Math.floor(1000 + Math.random() * 9000)} OK`;
-				detectedPlate = plate.toUpperCase();
-				showBottomSheet = true;
-			})
-			.catch(() => {
-				detectedPlate = `AB ${Math.floor(1000 + Math.random() * 9000)} GA`;
-				showBottomSheet = true;
-			})
-			.finally(() => {
-				isProcessing = false;
-				target.value = '';
+		try {
+			const formData = new FormData();
+			formData.append('file', file, file.name);
+			formData.append('image', file, file.name);
+
+			const res = await fetch('/api/m/ocr', {
+				method: 'POST',
+				body: formData
 			});
+
+			const data = await res.json().catch(() => null);
+
+			if (res.ok && data?.success) {
+				const plate = (data.plate_number || data.data?.plate_number || data.plate || '').trim().toUpperCase();
+				if (plate) {
+					detectedPlate = plate;
+					showBottomSheet = true;
+				} else {
+					errorMessage = 'Plat nomor tidak terdeteksi pada gambar.';
+				}
+			} else {
+				errorMessage = data?.message || 'Gagal mendeteksi plat nomor dari galeri.';
+			}
+		} catch (err: any) {
+			console.error('Gallery OCR Error:', err);
+			errorMessage = err.message || 'Terjadi kesalahan saat memproses gambar';
+		} finally {
+			isProcessing = false;
+			target.value = '';
+		}
 	}
 
 	function handleRetry() {
 		showBottomSheet = false;
 		detectedPlate = '';
+		errorMessage = '';
 	}
 
 	function handleContinue() {
@@ -167,7 +190,7 @@
 </script>
 
 <div class="fixed inset-0 z-50 bg-[#181A20] flex flex-col justify-between text-white select-none overflow-hidden">
-	<!-- ── 1. Top Header Bar (Back, Title, Flash, Gallery) ───────────── -->
+	<!-- ── 1. Top Header Bar (Back, Title, Flash) ───────────── -->
 	<div class="px-4 pt-4 pb-3 flex items-center justify-between z-20 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
 		<button
 			onclick={() => goto('/m/jukir')}
@@ -197,7 +220,15 @@
 		</div>
 	</div>
 
-	<!-- ── 2. Live Camera Viewfinder & Frame ─────────────────────────── -->
+	<!-- ── Error Message Banner ──────────────────────────────────────── -->
+	{#if errorMessage}
+		<div class="absolute top-16 inset-x-4 z-30 bg-rose-500/90 text-white text-xs px-4 py-2.5 rounded-xl backdrop-blur-md border border-rose-400/40 text-center font-medium shadow-lg flex items-center justify-center gap-2 animate-in fade-in duration-200">
+			<AlertCircleIcon class="w-4 h-4 shrink-0 text-white" />
+			<span>{errorMessage}</span>
+		</div>
+	{/if}
+
+	<!-- ── 2. Live Camera Viewfinder & Frame (1:1 linespotv3) ──────────── -->
 	<div class="relative flex-1 flex items-center justify-center overflow-hidden">
 		<!-- Camera Video Preview -->
 		<video
@@ -259,7 +290,8 @@
 		<!-- Gallery Picker Button -->
 		<button
 			onclick={() => fileInput?.click()}
-			class="flex flex-col items-center gap-1 text-slate-300 hover:text-white transition active:scale-95"
+			disabled={isProcessing}
+			class="flex flex-col items-center gap-1 text-slate-300 hover:text-white transition active:scale-95 disabled:opacity-50"
 		>
 			<div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/20">
 				<ImageIcon class="w-5 h-5" />
@@ -276,49 +308,48 @@
 		/>
 	</div>
 
-	<!-- ── 4. Plate Detected Bottom Sheet (LiquidGlassBottomSheet 1:1) ── -->
+	<!-- ── 4. Plate Detected Bottom Sheet (1:1 linespotv3 PlateDetectedBottomSheet) ── -->
 	{#if showBottomSheet}
 		<div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center animate-in fade-in duration-200">
-			<div class="w-full max-w-md bg-white rounded-t-3xl p-6 shadow-2xl text-slate-900 animate-in slide-in-from-bottom duration-300">
+			<div class="w-full max-w-md bg-[#1E222B]/95 backdrop-blur-xl border-t border-white/10 rounded-t-3xl p-6 shadow-2xl text-white animate-in slide-in-from-bottom duration-300">
 				<!-- Handle bar -->
-				<div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4"></div>
+				<div class="w-12 h-1 bg-slate-500/40 rounded-full mx-auto mb-4"></div>
 
-				<h3 class="text-sm font-bold text-center text-[#64748B] mb-2 uppercase tracking-wider">
-					Plat Nomor Terdeteksi
+				<h3 class="text-sm font-semibold text-center text-[#94A3B8] mb-3">
+					Nomor Plat Terdeteksi
 				</h3>
 
-				<!-- Editable Indonesian License Plate Box -->
-				<div class="relative my-3">
-					<div class="bg-black text-white rounded-xl px-5 py-3 border-2 border-white/40 shadow-inner flex items-center justify-center">
+				<!-- Editable Indonesian License Plate Box (1:1 linespotv3) -->
+				<div class="relative my-2">
+					<div class="bg-[#0F172A]/85 rounded-2xl px-5 py-4 border border-[#38BDF8]/40 shadow-inner flex items-center justify-center">
 						<input
 							type="text"
 							bind:value={detectedPlate}
-							class="w-full bg-transparent text-center font-mono font-black text-2xl tracking-widest uppercase focus:outline-none text-white selection:bg-sky-500"
+							class="w-full bg-transparent text-center font-mono font-black text-3xl tracking-widest uppercase focus:outline-none text-white selection:bg-sky-500"
 							placeholder="B 1234 XYZ"
 						/>
-						<Edit3Icon class="w-5 h-5 text-slate-400 absolute right-4 pointer-events-none" />
 					</div>
-					<div class="text-[10px] text-center text-slate-400 mt-1.5">
-						Ketuk untuk mengoreksi plat nomor jika diperlukan
+					<div class="text-xs text-center text-[#64748B] mt-2">
+						Ketuk teks plat di atas bila ingin memperbaiki karakter
 					</div>
 				</div>
 
-				<!-- Action Buttons (Ulangi & Lanjut) -->
-				<div class="grid grid-cols-2 gap-3 mt-5">
+				<!-- Action Buttons (Foto Ulang & Lanjut - 1:1 linespotv3) -->
+				<div class="grid grid-cols-2 gap-3 mt-6">
 					<button
 						onclick={handleRetry}
-						class="flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#03045E] font-bold text-sm active:scale-95 transition"
+						class="flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-[#334155] hover:bg-[#475569] text-white font-bold text-sm active:scale-95 transition"
 					>
-						<RotateCcwIcon class="w-4 h-4" />
-						<span>Ulangi</span>
+						<RefreshCwIcon class="w-4 h-4 text-[#F87171]" />
+						<span>Foto Ulang</span>
 					</button>
 
 					<button
 						onclick={handleContinue}
-						class="flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl bg-[#0077B6] hover:bg-[#0096C7] text-white font-bold text-sm shadow-lg shadow-[#0077B6]/40 active:scale-95 transition"
+						class="flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-[#0077B6] hover:bg-[#0096C7] text-white font-bold text-sm shadow-lg shadow-[#0077B6]/40 active:scale-95 transition"
 					>
 						<span>Lanjut</span>
-						<ArrowRightIcon class="w-4 h-4" />
+						<ArrowRightIcon class="w-4 h-4 text-white" />
 					</button>
 				</div>
 			</div>
