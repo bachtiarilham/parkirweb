@@ -1,11 +1,13 @@
 import { parkingSessionService } from '$lib/server/services/parking/parking_session.service.js';
 import type { PageServerLoad } from './$types.js';
+import { ACCESS_TOKEN_COOKIE } from '../../../../hooks.server.ts';
 
-export const load: PageServerLoad = async ({ fetch, parent }) => {
+export const load: PageServerLoad = async ({ fetch, parent, cookies }) => {
 	const { user } = await parent();
+	const token = cookies.get(ACCESS_TOKEN_COOKIE) || null;
 
 	try {
-		const rawSessions = await parkingSessionService.getAll(undefined, undefined, { fetch });
+		const rawSessions = await parkingSessionService.getAll(token, undefined, { fetch });
 		const sessions = Array.isArray(rawSessions) ? rawSessions : [];
 
 		const totalTransactions = sessions.length;

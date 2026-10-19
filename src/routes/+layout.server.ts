@@ -1,8 +1,10 @@
 import { getUserContext } from "$lib/utils/getCookies.js";
+import { ACCESS_TOKEN_COOKIE } from "../hooks.server.ts";
 import type { LayoutServerLoad } from "./$types.js";
 
 export const load: LayoutServerLoad = async ({ cookies }) => {
 	const userContext = getUserContext(cookies);
+	const token = cookies.get(ACCESS_TOKEN_COOKIE) || null;
 
 	const user = userContext
 		? {
@@ -22,5 +24,6 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 
 	return {
 		user,
+		token
 	};
 };

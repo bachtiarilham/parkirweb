@@ -2,12 +2,14 @@ import { parkingSessionService } from '$lib/server/services/parking/parking_sess
 import { fail, type Actions } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types.js';
 import type { ParkingSession } from '$lib/types/parking/parking_session.dto.js';
+import { ACCESS_TOKEN_COOKIE } from '../../../../hooks.server.ts';
 
-export const load: PageServerLoad = async ({ fetch, url }) => {
+export const load: PageServerLoad = async ({ fetch, url, cookies }) => {
+	const token = cookies.get(ACCESS_TOKEN_COOKIE) || null;
 	const ticketParam = url.searchParams.get('ticket') || '';
 
 	try {
-		const rawSessions = await parkingSessionService.getAll(undefined, undefined, { fetch });
+		const rawSessions = await parkingSessionService.getAll(token, undefined, { fetch });
 		const sessions = (Array.isArray(rawSessions) ? rawSessions : []) as ParkingSession[];
 
 		const activeSessions = sessions.filter(
@@ -42,7 +44,8 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
 };
 
 export const actions: Actions = {
-	checkout: async ({ request, fetch }) => {
+	checkout: async ({ request, fetch, cookies }) => {
+		const token = cookies.get(ACCESS_TOKEN_COOKIE) || null;
 		const formData = await request.formData();
 		const sessionId = formData.get('sessionId')?.toString();
 		const paymentMethod = formData.get('paymentMethod')?.toString() || 'CASH';
@@ -60,7 +63,7 @@ export const actions: Actions = {
 				amount: Number(amount)
 			};
 
-			const result = await parkingSessionService.update(Number(sessionId), updatePayload, undefined, { fetch });
+			const result = await parkingSessionService.update(Number(sessionId), updatePayload, token, { fetch });
 
 			return {
 				success: true,

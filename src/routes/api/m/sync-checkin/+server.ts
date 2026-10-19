@@ -4,7 +4,8 @@ import { API_ENDPOINTS } from '$lib/server/api/endpoints.js';
 
 export const POST: RequestHandler = async ({ request, cookies, fetch }) => {
 	try {
-		const token = cookies.get('access_token') || null;
+		const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+		const token = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : (cookies.get('access_token') || null);
 		const idempotencyKey = request.headers.get('X-Idempotency-Key') || undefined;
 		const body = await request.json();
 
