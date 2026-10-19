@@ -8,6 +8,7 @@
 	import HomeIcon from '@lucide/svelte/icons/home';
 	import CameraIcon from '@lucide/svelte/icons/camera';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
+	import { API_ENDPOINTS } from '$lib/api/endpoints.js';
 
 	let { data, children } = $props();
 
@@ -51,7 +52,7 @@
 			for (const item of items) {
 				try {
 					await offlineStorage.updateStatus(item.id, 'SYNCING');
-					const res = await fetch('/api/m/sync-checkin', {
+					const res = await fetch(API_ENDPOINTS.PARKING.SESSIONS.CHECKIN, {
 						method: 'POST',
 						headers: {
 							'Content-Type': 'application/json',

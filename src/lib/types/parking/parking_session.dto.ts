@@ -12,6 +12,7 @@ export interface ParkingSession {
   check_out_time?: string | null;
   duration_minutes: number | null;
   amount: number | string;
+  payment_method?: string | null;
   status: string;
   payment_order_id?: string | null;
   metadata?: string | null;
@@ -47,6 +48,7 @@ export interface UpdateParkingSessionRequest {
   check_out_time?: string | null;
   duration_minutes?: number | null;
   amount?: number | string | null;
+  payment_method?: string | null;
   status?: 'ACTIVE' | 'PENDING' | 'PAID' | 'COMPLETED' | 'CANCELLED' | string | null;
   payment_order_id?: string | null;
   metadata?: unknown | null;

@@ -9,6 +9,7 @@
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import { formatCurrency } from '$lib/utils/format-currency';
+	import { API_ENDPOINTS } from '$lib/api/endpoints.js';
 
 	let selectedPlanId = $state('monthly');
 	let plateNumber = $state('');
@@ -43,13 +44,13 @@
 
 		isSubmitting = true;
 		try {
-			// Trigger Midtrans Snap or checkout API
-			const res = await fetch('/api/pricing/checkout', {
+			// Trigger contract create API
+			const res = await fetch(API_ENDPOINTS.MEMBERSHIP.RIDER_CONTRACTS.BASE, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					plan_id: selectedPlanId === 'monthly' ? 1 : 2,
-					license_plates: plateNumber.trim().toUpperCase(),
+					rfid_card_no: plateNumber.trim().toUpperCase(),
 					vehicle_type: vehicleType
 				})
 			}).catch(() => null);

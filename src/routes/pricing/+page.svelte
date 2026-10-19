@@ -18,6 +18,7 @@
 	import AlertCircleIcon from "@lucide/svelte/icons/alert-circle";
 	import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
 	import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
+	import { API_ENDPOINTS } from "$lib/api/endpoints.js";
 	import Loader2Icon from "@lucide/svelte/icons/loader-2";
 	import PlusIcon from "@lucide/svelte/icons/plus";
 	import Trash2Icon from "@lucide/svelte/icons/trash-2";
@@ -143,7 +144,7 @@
 		isSubmitting = true;
 
 		try {
-			const res = await fetch("/api/pricing/checkout", {
+			const res = await fetch(API_ENDPOINTS.MEMBERSHIP.RIDER_CONTRACTS.BASE, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",

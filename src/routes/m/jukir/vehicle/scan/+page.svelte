@@ -9,6 +9,7 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
+	import { API_ENDPOINTS } from '$lib/api/endpoints.js';
 
 	let videoElement: HTMLVideoElement | null = $state(null);
 	let stream: MediaStream | null = $state(null);
@@ -100,15 +101,20 @@
 			}
 
 			const formData = new FormData();
-			formData.append('file', blob, 'camera_capture.jpg');
 			formData.append('image', blob, 'camera_capture.jpg');
+			formData.append('file', blob, 'camera_capture.jpg');
 
-			const res = await fetch('/api/m/ocr', {
+			const res = await fetch(API_ENDPOINTS.OCR.LICENSE_PLATE, {
 				method: 'POST',
 				body: formData
 			});
 
 			const data = await res.json().catch(() => null);
+
+			if (res.status === 401) {
+				errorMessage = 'Sesi Anda telah berakhir atau belum login. Silakan login kembali.';
+				return;
+			}
 
 			if (res.ok && data?.success) {
 				const plate = (data.plate_number || data.data?.plate_number || data.plate || '').trim().toUpperCase();
@@ -139,15 +145,20 @@
 
 		try {
 			const formData = new FormData();
-			formData.append('file', file, file.name);
 			formData.append('image', file, file.name);
+			formData.append('file', file, file.name);
 
-			const res = await fetch('/api/m/ocr', {
+			const res = await fetch(API_ENDPOINTS.OCR.LICENSE_PLATE, {
 				method: 'POST',
 				body: formData
 			});
 
 			const data = await res.json().catch(() => null);
+
+			if (res.status === 401) {
+				errorMessage = 'Sesi Anda telah berakhir atau belum login. Silakan login kembali.';
+				return;
+			}
 
 			if (res.ok && data?.success) {
 				const plate = (data.plate_number || data.data?.plate_number || data.plate || '').trim().toUpperCase();

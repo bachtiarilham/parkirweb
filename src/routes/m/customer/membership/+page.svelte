@@ -8,6 +8,7 @@
 	import BikeIcon from '@lucide/svelte/icons/bike';
 	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
 	import { formatCurrency } from '$lib/utils/format-currency';
+	import { API_ENDPOINTS } from '$lib/api/endpoints.js';
 
 	let { data } = $props();
 
@@ -34,12 +35,12 @@
 		errorMessage = null;
 
 		try {
-			const res = await fetch('/api/pricing/checkout', {
+			const res = await fetch(API_ENDPOINTS.MEMBERSHIP.RIDER_CONTRACTS.BASE, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					plan_id: selectedPlan.member_rider_plan_id || selectedPlan.id,
-					license_plates: licensePlate.toUpperCase().trim()
+					rfid_card_no: licensePlate.toUpperCase().trim()
 				})
 			});
 

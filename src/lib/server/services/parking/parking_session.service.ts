@@ -40,13 +40,15 @@ export const parkingSessionService = {
 
 	async getById(
 		id: string | number,
-		token?: string | null,
+		tokenOrOptions?: string | null | { fetch?: typeof fetch },
 		options: { fetch?: typeof fetch } = {}
 	): Promise<ParkingSession> {
+		const token = typeof tokenOrOptions === "string" ? tokenOrOptions : undefined;
+		const actualOptions = typeof tokenOrOptions === "object" && tokenOrOptions !== null ? tokenOrOptions : options;
 		return apiClient<ParkingSession>(
 			API_ENDPOINTS.PARKING.SESSIONS.GET_BY_ID(id),
 			{
-				fetch: options.fetch,
+				fetch: actualOptions.fetch,
 				token,
 			}
 		);

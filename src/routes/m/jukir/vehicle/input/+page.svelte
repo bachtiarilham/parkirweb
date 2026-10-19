@@ -9,6 +9,7 @@
 	import BikeIcon from '@lucide/svelte/icons/bike';
 	import TruckIcon from '@lucide/svelte/icons/truck';
 	import { formatCurrency } from '$lib/utils/format-currency';
+	import { API_ENDPOINTS } from '$lib/api/endpoints.js';
 
 	let { data } = $props();
 
@@ -50,7 +51,7 @@
 			const idempotencyKey = `chk_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 			const branchId = data.user?.branchId || 1;
 
-			const res = await fetch('/api/m/sync-checkin', {
+			const res = await fetch(API_ENDPOINTS.PARKING.SESSIONS.CHECKIN, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
