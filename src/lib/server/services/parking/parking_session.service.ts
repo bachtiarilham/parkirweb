@@ -7,14 +7,31 @@ import type {
 
 export const parkingSessionService = {
 	async getAll(
-		token?: string | null,
-		params?: Record<string, any>,
-		options: { fetch?: typeof fetch } = {}
+		tokenOrParams?: string | null | Record<string, any>,
+		paramsOrOptions?: Record<string, any> | { fetch?: typeof fetch; token?: string | null },
+		options: { fetch?: typeof fetch; token?: string | null } = {}
 	): Promise<ParkingSession[]> {
+		let token: string | null | undefined = undefined;
+		let params: Record<string, any> | undefined = undefined;
+		let fetchFn: typeof fetch | undefined = undefined;
+
+		if (typeof tokenOrParams === "string" || tokenOrParams === null) {
+			token = tokenOrParams;
+			params = paramsOrOptions as Record<string, any> | undefined;
+			fetchFn = options.fetch;
+		} else if (typeof tokenOrParams === "object" && tokenOrParams !== null) {
+			params = tokenOrParams;
+			const opts = paramsOrOptions as { fetch?: typeof fetch; token?: string | null } | undefined;
+			fetchFn = opts?.fetch;
+			token = opts?.token;
+		} else {
+			fetchFn = options.fetch;
+		}
+
 		return apiClient<ParkingSession[]>(
 			API_ENDPOINTS.PARKING.SESSIONS.LIST,
 			{
-				fetch: options.fetch,
+				fetch: fetchFn,
 				token,
 				params,
 			}
@@ -53,14 +70,20 @@ export const parkingSessionService = {
 	async checkIn(
 		data: Partial<CreateParkingSessionRequest>,
 		token?: string | null,
-		options: { fetch?: typeof fetch } = {}
+		options: { fetch?: typeof fetch; idempotencyKey?: string } = {}
 	): Promise<ParkingSession> {
+		const headers: Record<string, string> = {};
+		if (options.idempotencyKey) {
+			headers["Idempotency-Key"] = options.idempotencyKey;
+		}
+
 		return apiClient.post<ParkingSession>(
 			API_ENDPOINTS.PARKING.SESSIONS.CHECKIN,
 			data,
 			{
 				fetch: options.fetch,
 				token,
+				headers,
 			}
 		);
 	},

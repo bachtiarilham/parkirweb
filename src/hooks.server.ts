@@ -4,12 +4,12 @@ import { sessionService } from "$lib/server/services/identity/session.service.js
 import { ApiError } from "$lib/server/api/client.js";
 import { getAuthTokens, getUserContext } from "$lib/utils/getCookies";
 import { canAccessPage } from "$lib/rbac";
+import { runWithRequestContext } from "$lib/server/context.js";
 
 export const ACCESS_TOKEN_COOKIE = "access_token";
 export const REFRESH_TOKEN_COOKIE = "refresh_token";
 export const USER_COOKIE = "auth_user";
-
-// const isProduction = process.env.NODE_ENV === "production";
+export const DEVICE_ID_COOKIE = "device_id";
 
 // ============================================================================
 // 1. HELPER AUTO-REFRESH TOKEN & UPDATE COOKIES
@@ -27,7 +27,6 @@ async function refreshAuthSession(cookies: import("@sveltejs/kit").Cookies, cust
 			path: "/",
 			httpOnly: true,
 			sameSite: "lax",
-			// secure: isProduction,
 			maxAge: tokens.expiresIn || 60 * 60 * 24,
 		});
 
@@ -36,7 +35,6 @@ async function refreshAuthSession(cookies: import("@sveltejs/kit").Cookies, cust
 				path: "/",
 				httpOnly: true,
 				sameSite: "lax",
-				// secure: isProduction,
 				maxAge: 60 * 60 * 24 * 30,
 			});
 		}
@@ -58,7 +56,6 @@ async function refreshAuthSession(cookies: import("@sveltejs/kit").Cookies, cust
 				path: "/",
 				httpOnly: true,
 				sameSite: "lax",
-				// secure: isProduction,
 				maxAge: 60 * 60 * 24 * 7,
 			});
 		}
@@ -74,14 +71,17 @@ async function refreshAuthSession(cookies: import("@sveltejs/kit").Cookies, cust
 }
 
 // ============================================================================
-// 2. MAIN BFF MIDDLEWARE (Auth, Auto-Refresh Token, & JWT Claims Context)
+// 2. MAIN BFF MIDDLEWARE (Auth, Auto-Refresh Token, & Central Request Context)
 // ============================================================================
 export const handle: Handle = async ({ event, resolve }) => {
-   let accessToken = event.cookies.get(ACCESS_TOKEN_COOKIE) || null;
+	// A. Ekstrak Bearer token dari Cookie atau Header Authorization
+	const authHeader = event.request.headers.get("authorization") || event.request.headers.get("Authorization");
+	let accessToken = authHeader ? authHeader.replace(/^Bearer\s+/i, "").trim() : (event.cookies.get(ACCESS_TOKEN_COOKIE) || null);
 	const refreshToken = event.cookies.get(REFRESH_TOKEN_COOKIE) || null;
+
 	const claims = parseJwt(accessToken);
 
-	// A. Auto-refresh jika token tidak valid/expired tapi ada refreshToken
+	// B. Auto-refresh jika token tidak valid/expired tapi ada refreshToken
 	if ((!claims || isJwtExpired(claims)) && refreshToken) {
 		const refreshed = await refreshAuthSession(event.cookies, event.fetch);
 		if (refreshed) {
@@ -89,11 +89,28 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
-	// B. Pengecekan sesi murni dari Cookies
+	// C. Device Context (Diperlukan oleh park-server-v3)
+	let deviceId = event.cookies.get(DEVICE_ID_COOKIE) || event.request.headers.get("x-device-id") || null;
+	if (!deviceId) {
+		deviceId = "web-" + crypto.randomUUID().slice(0, 18);
+		event.cookies.set(DEVICE_ID_COOKIE, deviceId, {
+			path: "/",
+			httpOnly: false,
+			sameSite: "lax",
+			maxAge: 60 * 60 * 24 * 365,
+		});
+	}
+	const deviceName = event.request.headers.get("x-device-name") || "Web Browser";
+	const requestId = event.request.headers.get("x-request-id") || crypto.randomUUID();
+
+	event.locals.deviceId = deviceId;
+	event.locals.deviceName = deviceName;
+
+	// D. Pengecekan sesi murni dari Cookies / Context
 	const userContext = getUserContext(event.cookies);
 	const isAuthenticated = Boolean(userContext && accessToken);
 
-	// C. Centralized Route Guard (Pengecekan berbasis Cookies)
+	// E. Centralized Route Guard
 	const pathname = event.url.pathname;
 	const isAuthRoute =
 		pathname.startsWith("/login") ||
@@ -131,11 +148,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 		} else if (rawRole.includes("CUSTOMER")) {
 			redirect(302, "/m/customer");
 		} else {
-         redirect(302, "/");
-      }
+			redirect(302, "/");
+		}
 	}
 
-	// D. RBAC Permission Check (Berdasarkan PAGE_ROLES)
+	// F. RBAC Permission Check (Berdasarkan PAGE_ROLES)
 	if (isAuthenticated && userContext && !pathname.startsWith("/api") && !isPublicRoute) {
 		if (!canAccessPage(pathname, userContext.roleCode)) {
 			console.warn(`[RBAC FORBIDDEN] Path: ${pathname}, User: ${userContext.fullName}, RoleCode: '${userContext.roleCode}'`);
@@ -143,94 +160,114 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
-	const response = await resolve(event);
+	// G. Jalankan request di dalam serverContext (AsyncLocalStorage)
+	const contextStore = {
+		token: accessToken,
+		deviceId,
+		deviceName,
+		requestId,
+		user: userContext,
+		cookies: event.cookies,
+	};
 
-	// D. Trigger auto-refresh jika server merespons 401 Unauthorized
-	// Unauthorized responds with a 401 Unauthorized status, success=false, message
-	if (response.status === 401 && event.cookies.get(REFRESH_TOKEN_COOKIE)) {
-		await refreshAuthSession(event.cookies, event.fetch);
+	return runWithRequestContext(contextStore, async () => {
+		const response = await resolve(event);
+
+		// Trigger auto-refresh jika server merespons 401 Unauthorized
+		if (response.status === 401 && event.cookies.get(REFRESH_TOKEN_COOKIE)) {
+			await refreshAuthSession(event.cookies, event.fetch);
+		}
+
+		return response;
+	});
+};
+
+// ============================================================================
+// 3. FETCH INTERCEPTOR (1:1 park-server-v3 Headers & Auto-Retry on 401)
+// ============================================================================
+export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
+	const userContext = getUserContext(event.cookies);
+	const { accessToken } = getAuthTokens(event.cookies);
+
+	// A. Headers Standar Backend Go (park-server-v3)
+	const isFormData = typeof request.body === "object" && request.headers.get("content-type")?.includes("multipart/form-data");
+	if (!isFormData && !request.headers.has("Content-Type")) {
+		request.headers.set("Content-Type", "application/json");
+	}
+	if (!request.headers.has("Accept")) {
+		request.headers.set("Accept", "application/json, */*");
+	}
+
+	// Bypass ngrok warning page
+	request.headers.set("ngrok-skip-browser-warning", "true");
+
+	// B. Bearer Authorization
+	if (accessToken && !request.headers.has("Authorization")) {
+		request.headers.set("Authorization", `Bearer ${accessToken}`);
+	}
+
+	// C. Device & Tracing Headers
+	const deviceId = (event.locals as any)?.deviceId || event.cookies.get(DEVICE_ID_COOKIE) || "web-browser";
+	const deviceName = (event.locals as any)?.deviceName || "Web Browser";
+	if (!request.headers.has("X-Device-ID")) {
+		request.headers.set("X-Device-ID", deviceId);
+	}
+	if (!request.headers.has("X-Device-Name")) {
+		request.headers.set("X-Device-Name", deviceName);
+	}
+	if (!request.headers.has("X-Request-ID")) {
+		request.headers.set("X-Request-ID", crypto.randomUUID());
+	}
+
+	// D. Header Konteks Tenant & Branch (dari userContext)
+	if (userContext?.tenantId && !request.headers.has("x-tenant-id")) {
+		request.headers.set("x-tenant-id", String(userContext.tenantId));
+	}
+	if (userContext?.tenantCode && !request.headers.has("x-tenant-code")) {
+		request.headers.set("x-tenant-code", userContext.tenantCode);
+	}
+	if (userContext?.branchId && !request.headers.has("x-branch-id")) {
+		request.headers.set("x-branch-id", String(userContext.branchId));
+	}
+	if (userContext?.branchCode && !request.headers.has("x-branch-code")) {
+		request.headers.set("x-branch-code", userContext.branchCode);
+	}
+	if (userContext?.userId && !request.headers.has("x-user-id")) {
+		request.headers.set("x-user-id", String(userContext.userId));
+	}
+	if (userContext?.roleCode && !request.headers.has("x-role-code")) {
+		request.headers.set("x-role-code", userContext.roleCode);
+	}
+
+	// E. Clone request sebelum fetch agar body tetap tersedia untuk retry jika terjadi 401
+	const isRefreshEndpoint = request.url.includes("/users/auth/refresh");
+	const canRetry = !isRefreshEndpoint && Boolean(event.cookies.get(REFRESH_TOKEN_COOKIE));
+	const requestClone = canRetry ? request.clone() : null;
+
+	let response = await fetch(request);
+
+	// Auto-retry on 401 Unauthorized
+	if (response.status === 401 && canRetry && requestClone) {
+		console.warn(`[handleFetch] Server merespons 401 Unauthorized pada ${request.url}. Menjalankan auto-refresh token...`);
+		const newTokens = await refreshAuthSession(event.cookies, fetch);
+
+		if (newTokens?.accessToken) {
+			const retryHeaders = new Headers(requestClone.headers);
+			retryHeaders.set("Authorization", `Bearer ${newTokens.accessToken}`);
+
+			const retryRequest = new Request(requestClone, {
+				headers: retryHeaders,
+			});
+
+			response = await fetch(retryRequest);
+		}
 	}
 
 	return response;
 };
 
 // ============================================================================
-// 3. FETCH INTERCEPTOR (Format JSON, Teruskan Headers, & Retry on 401)
-// ============================================================================
-export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
-   const userContext = getUserContext(event.cookies);
-   const { accessToken } = getAuthTokens(event.cookies);
-
-   // A. Content Negotiation Headers
-   if (!request.headers.has("Content-Type")) {
-      request.headers.set("Content-Type", "application/json");
-   }
-   if (!request.headers.has("Accept")) {
-      request.headers.set("Accept", "*/*");
-   }
-
-   // B. Bearer Authorization
-   if (accessToken && !request.headers.has("Authorization")) {
-      request.headers.set("Authorization", `Bearer ${accessToken}`);
-   }
-
-   // C. Header Konteks Tenant & Branch (dari userContext)
-   if (userContext?.tenantId && !request.headers.has("x-tenant-id")) {
-      request.headers.set("x-tenant-id", String(userContext.tenantId));
-   }
-   if (userContext?.tenantCode && !request.headers.has("x-tenant-code")) {
-      request.headers.set("x-tenant-code", userContext.tenantCode);
-   }
-   if (userContext?.branchId && !request.headers.has("x-branch-id")) {
-      request.headers.set("x-branch-id", String(userContext.branchId));
-   }
-   if (userContext?.branchCode && !request.headers.has("x-branch-code")) {
-      request.headers.set("x-branch-code", userContext.branchCode);
-   }
-   if (userContext?.userId && !request.headers.has("x-user-id")) {
-      request.headers.set("x-user-id", String(userContext.userId));
-   }
-   if (userContext?.roleCode && !request.headers.has("x-role-code")) {
-      request.headers.set("x-role-code", userContext.roleCode);
-   }
-
-   // D. Context Tambahan (Device jika ada di event.locals)
-   if (event.locals.deviceId && !request.headers.has("x-device-id")) {
-      request.headers.set("x-device-id", String(event.locals.deviceId));
-   }
-   if (event.locals.deviceName && !request.headers.has("x-device-name")) {
-      request.headers.set("x-device-name", event.locals.deviceName);
-   }
-
-   // E. Clone request sebelum fetch agar body tetap tersedia untuk retry jika terjadi 401
-   const isRefreshEndpoint = request.url.includes("/users/auth/refresh");
-   const canRetry = !isRefreshEndpoint && Boolean(event.cookies.get(REFRESH_TOKEN_COOKIE));
-   const requestClone = canRetry ? request.clone() : null;
-
-   let response = await fetch(request);
-
-   // Unauthorized responds with a 401 Unauthorized status, success=false, message
-   if (response.status === 401 && canRetry && requestClone) {
-      console.warn(`[handleFetch] Server merespons 401 Unauthorized pada ${request.url}. Menjalankan auto-refresh token...`);
-      const newTokens = await refreshAuthSession(event.cookies, fetch);
-
-      if (newTokens?.accessToken) {
-         const retryHeaders = new Headers(requestClone.headers);
-         retryHeaders.set("Authorization", `Bearer ${newTokens.accessToken}`);
-
-         const retryRequest = new Request(requestClone, {
-            headers: retryHeaders,
-         });
-
-         response = await fetch(retryRequest);
-      }
-   }
-
-   return response;
-};
-
-// ============================================================================
-// 3. GLOBAL ERROR HANDLER (Menerima status backend & parsing langsung ke +error.svelte)
+// 4. GLOBAL ERROR HANDLER
 // ============================================================================
 export const handleError: HandleServerError = async ({ error, event, status, message }) => {
 	const errorId = crypto.randomUUID();

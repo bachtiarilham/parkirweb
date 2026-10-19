@@ -3,18 +3,16 @@ import { riderContractService } from '$lib/server/services/membership/rider_cont
 import type { PageServerLoad } from './$types.js';
 import type { ParkingSession } from '$lib/types/parking/parking_session.dto.js';
 import type { MemberRiderContract } from '$lib/types/membership/rider_contract.dto.js';
-import { ACCESS_TOKEN_COOKIE } from '../../../hooks.server.ts';
 
-export const load: PageServerLoad = async ({ fetch, parent, cookies }) => {
+export const load: PageServerLoad = async ({ fetch, parent }) => {
 	const { user } = await parent();
-	const token = cookies.get(ACCESS_TOKEN_COOKIE) || null;
 
 	let activeSession: ParkingSession | null = null;
 	let activeContract: MemberRiderContract | null = null;
 
-	if (token) {
+	if (user) {
 		try {
-			const rawSessions = await parkingSessionService.getAll(token, undefined, { fetch });
+			const rawSessions = await parkingSessionService.getAll({ fetch });
 			const sessions = (Array.isArray(rawSessions) ? rawSessions : []) as ParkingSession[];
 
 			activeSession =
@@ -26,7 +24,7 @@ export const load: PageServerLoad = async ({ fetch, parent, cookies }) => {
 		}
 
 		try {
-			const rawContracts = await riderContractService.getAll(token, undefined, { fetch });
+			const rawContracts = await riderContractService.getAll(undefined, undefined, { fetch });
 			const contracts = (Array.isArray(rawContracts) ? rawContracts : []) as MemberRiderContract[];
 
 			activeContract =

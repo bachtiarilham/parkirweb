@@ -98,10 +98,7 @@ export const API_ENDPOINTS = {
 		BRANCH_DASHBOARD: `${V1}/analytics/branch-dashboard`, // GET
 		SYSTEM_DASHBOARD: `${V1}/analytics/system-dashboard`, // GET
 		MEMBER_DASHBOARD: `${V1}/analytics/member-dashboard`, // GET
-	},
-	STATS: {
-		DASHBOARD: `${V1}/analytics/summary`,
-		ANALYTICS: `${V1}/analytics/summary`,
+		MOBILE_OFFICER_DASHBOARD: `${V1}/analytics/mobile-officer-dashboard`, // GET
 	},
 
 	// =========================================================================
@@ -264,16 +261,6 @@ export const API_ENDPOINTS = {
 			DETAIL: (id: string | number) => `${V1}/tenant-balances/${id}`,
 			GET_BY_TENANT: (tenantId: string | number) =>
 				`${V1}/tenant-balances/tenant/${tenantId}`, // GET
-		},
-
-		BALANCES: {
-			BASE: `${V1}/balances`,
-			LIST: `${V1}/balances`, // GET
-			CREATE: `${V1}/balances`, // POST
-			GET_BY_ID: (id: string | number) => `${V1}/balances/${id}`, // GET
-			UPDATE: (id: string | number) => `${V1}/balances/${id}`, // PUT
-			DELETE: (id: string | number) => `${V1}/balances/${id}`, // DELETE
-			DETAIL: (id: string | number) => `${V1}/balances/${id}`,
 		},
 
 		BANK_RECONCILIATIONS: {

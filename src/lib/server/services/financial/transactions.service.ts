@@ -7,14 +7,31 @@ import type {
 
 export const transactionsService = {
 	async getAll(
-		token?: string | null,
-		params?: Record<string, any>,
-		options: { fetch?: typeof fetch } = {}
+		tokenOrParams?: string | null | Record<string, any>,
+		paramsOrOptions?: Record<string, any> | { fetch?: typeof fetch; token?: string | null },
+		options: { fetch?: typeof fetch; token?: string | null } = {}
 	): Promise<PayTransaction[]> {
+		let token: string | null | undefined = undefined;
+		let params: Record<string, any> | undefined = undefined;
+		let fetchFn: typeof fetch | undefined = undefined;
+
+		if (typeof tokenOrParams === "string" || tokenOrParams === null) {
+			token = tokenOrParams;
+			params = paramsOrOptions as Record<string, any> | undefined;
+			fetchFn = options.fetch;
+		} else if (typeof tokenOrParams === "object" && tokenOrParams !== null) {
+			params = tokenOrParams;
+			const opts = paramsOrOptions as { fetch?: typeof fetch; token?: string | null } | undefined;
+			fetchFn = opts?.fetch;
+			token = opts?.token;
+		} else {
+			fetchFn = options.fetch;
+		}
+
 		return apiClient<PayTransaction[]>(
 			API_ENDPOINTS.FINANCIAL.PAY_TRANSACTIONS.LIST,
 			{
-				fetch: options.fetch,
+				fetch: fetchFn,
 				token,
 				params,
 			}

@@ -1,5 +1,6 @@
 import { env } from "$env/dynamic/private";
 import type { ApiResponse } from "$lib/types/api.dto.js";
+import { getRequestContext } from "../context.js";
 
 export interface ApiClientOptions extends RequestInit {
 	params?: Record<string, string | number | boolean | undefined | null>;
@@ -15,7 +16,7 @@ export interface ApiClientOptions extends RequestInit {
 }
 
 /**
- * Standard Error Class untuk kesalahan API backend eksternal
+ * Standard Error Class untuk kesalahan API backend eksternal (park-server-v3)
  */
 export class ApiError extends Error {
 	public status: number;
@@ -37,32 +38,34 @@ export class ApiError extends Error {
 }
 
 /**
- * Centralized API Client untuk berkomunikasi secara privat dari SvelteKit server ke backend eksternal.
- * Menangani URL dasar, injeksi header authorization, metadata tenant/branch/device,
- * serta mengekstrak payload envelope backend `{ status, message, data }`.
+ * Centralized API Client untuk berkomunikasi secara privat dari SvelteKit server ke backend Go (park-server-v3).
+ * Menangani URL dasar tunggal, injeksi header otomatis dari serverContext,
+ * dan mengekstrak payload envelope backend `{ success, message, data }`.
  */
 export async function apiClient<T = unknown>(
 	endpoint: string,
 	options: ApiClientOptions = {}
 ): Promise<T> {
+	const ctx = getRequestContext();
+
 	const {
 		params,
-		token,
+		token = ctx?.token ?? null,
 		fetch: customFetch,
-		deviceId,
-		deviceName,
-		tenantId,
-		tenantCode,
-		branchId,
-		branchCode,
+		deviceId = ctx?.deviceId ?? "web-browser",
+		deviceName = ctx?.deviceName ?? "Web Browser",
+		tenantId = ctx?.user?.tenantId ? String(ctx.user.tenantId) : null,
+		tenantCode = ctx?.user?.tenantCode ?? null,
+		branchId = ctx?.user?.branchId ? String(ctx.user.branchId) : null,
+		branchCode = ctx?.user?.branchCode ?? null,
 		raw = false,
 		headers: customHeaders,
 		...fetchOptions
 	} = options;
 
+	// Base URL tunggal kanonikal (tanpa percabangan OR ganda)
 	const baseUrl = (
-		env.BACKEND_API_URL 
-    ||
+		env.BACKEND_API_URL ||
 		process.env.BACKEND_API_URL ||
 		"https://nonstatutory-wonda-preadherently.ngrok-free.dev"
 	).replace(/\/+$/, "");
@@ -89,10 +92,14 @@ export async function apiClient<T = unknown>(
 		}
 	}
 
+	const isFormData = typeof fetchOptions.body === "object" && fetchOptions.body instanceof FormData;
+
+	// Header 1:1 sesuai kebutuhan park-server-v3
 	const headers: Record<string, string> = {
-		"Content-Type": "application/json",
-		Accept: "*/*",
+		Accept: "application/json, */*",
 		"ngrok-skip-browser-warning": "true",
+		"X-Request-ID": ctx?.requestId ?? crypto.randomUUID(),
+		...(isFormData ? {} : { "Content-Type": "application/json" }),
 		...(token ? { Authorization: `Bearer ${token}` } : {}),
 		...(deviceId ? { "X-Device-ID": deviceId } : {}),
 		...(deviceName ? { "X-Device-Name": deviceName } : {}),
@@ -103,13 +110,11 @@ export async function apiClient<T = unknown>(
 		...((customHeaders as Record<string, string>) || {}),
 	};
 
-	// Gunakan global fetch murni di server agar tidak mewarisi header browser (Origin/Referer)
-	// yang dapat memicu CORS 403 di backend Go
-	const fetchFn = fetch;
+	const fetchFn = customFetch || fetch;
 
 	console.log(`[Backend Call] ${fetchOptions.method || "GET"} ${url}`, {
-		headers,
-		body: fetchOptions.body,
+		hasToken: !!token,
+		deviceId,
 	});
 
 	let response: Response;
@@ -140,7 +145,6 @@ export async function apiClient<T = unknown>(
 				? (responseJson as Record<string, unknown>)
 				: null;
 
-		// Format pasti backend: { success: false, message: '...', errors: { ... } }
 		const errorMessage =
 			(typeof errObj?.message === "string" && errObj.message) ||
 			(typeof errObj?.error === "string" && errObj.error) ||
@@ -152,12 +156,11 @@ export async function apiClient<T = unknown>(
 		throw new ApiError(errorMessage, response.status, errorData, errors);
 	}
 
-	// Jika pemanggil meminta format mentah ApiResponse<T>
 	if (raw) {
 		return responseJson as T;
 	}
 
-	// Ekstrak data dari envelope backend { status, message, data }
+	// Ekstrak data dari envelope backend { success: true, message: '...', data: T }
 	if (responseJson && typeof responseJson === "object" && "data" in responseJson) {
 		return (responseJson as { data: T }).data;
 	}
@@ -165,7 +168,7 @@ export async function apiClient<T = unknown>(
 	return responseJson as T;
 }
 
-// Helper methods untuk kemudahan pemanggilan
+// Helper methods
 apiClient.get = <T>(endpoint: string, options?: ApiClientOptions): Promise<T> =>
 	apiClient<T>(endpoint, { ...options, method: "GET" });
 
@@ -177,7 +180,7 @@ apiClient.post = <T>(
 	apiClient<T>(endpoint, {
 		...options,
 		method: "POST",
-		body: body !== undefined ? JSON.stringify(body) : undefined,
+		body: body instanceof FormData ? body : (body !== undefined ? JSON.stringify(body) : undefined),
 	});
 
 apiClient.put = <T>(
@@ -188,7 +191,7 @@ apiClient.put = <T>(
 	apiClient<T>(endpoint, {
 		...options,
 		method: "PUT",
-		body: body !== undefined ? JSON.stringify(body) : undefined,
+		body: body instanceof FormData ? body : (body !== undefined ? JSON.stringify(body) : undefined),
 	});
 
 apiClient.patch = <T>(
@@ -199,13 +202,12 @@ apiClient.patch = <T>(
 	apiClient<T>(endpoint, {
 		...options,
 		method: "PATCH",
-		body: body !== undefined ? JSON.stringify(body) : undefined,
+		body: body instanceof FormData ? body : (body !== undefined ? JSON.stringify(body) : undefined),
 	});
 
 apiClient.delete = <T>(endpoint: string, options?: ApiClientOptions): Promise<T> =>
 	apiClient<T>(endpoint, { ...options, method: "DELETE" });
 
-// Helper untuk mendapatkan envelope ApiResponse lengkap jika diperlukan
 apiClient.raw = <T>(
 	endpoint: string,
 	options?: ApiClientOptions

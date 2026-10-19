@@ -1,23 +1,21 @@
 import { parkingSessionService } from '$lib/server/services/parking/parking_session.service.js';
 import { transactionsService } from '$lib/server/services/financial/transactions.service.js';
 import type { PageServerLoad } from './$types.js';
-import { ACCESS_TOKEN_COOKIE } from '../../../hooks.server.ts';
 
-export const load: PageServerLoad = async ({ fetch, parent, cookies }) => {
+export const load: PageServerLoad = async ({ fetch, parent }) => {
 	const { user } = await parent();
-	const token = cookies.get(ACCESS_TOKEN_COOKIE) || null;
 
-	if (!token) {
+	if (!user) {
 		return {
-			user,
+			user: null,
 			sessions: []
 		};
 	}
 
 	try {
 		const [rawSessions, rawPayTx] = await Promise.all([
-			parkingSessionService.getAll(token, undefined, { fetch }).catch(() => []),
-			transactionsService.getAll(token, undefined, { fetch }).catch(() => [])
+			parkingSessionService.getAll({ fetch }).catch(() => []),
+			transactionsService.getAll({ fetch }).catch(() => [])
 		]);
 
 		const sessions = (Array.isArray(rawSessions) ? rawSessions : []) as any[];

@@ -36,7 +36,7 @@ export const statsService = {
 		options: { fetch?: typeof fetch } = {}
 	): Promise<DashboardData | null> {
 		try {
-			return await apiClient<DashboardData>(API_ENDPOINTS.STATS.DASHBOARD, {
+			return await apiClient<DashboardData>(API_ENDPOINTS.ANALYTICS.SUMMARY, {
 				fetch: options.fetch,
 				token,
 			});
