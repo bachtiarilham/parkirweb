@@ -8,6 +8,7 @@
 	import PhoneIcon from '@lucide/svelte/icons/phone';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import { deserialize } from '$app/forms';
+	import { compressImage } from '$lib/utils/image-compressor.js';
 
 	let { data } = $props();
 
@@ -19,21 +20,39 @@
 	});
 	let phoneNumber = $state('081234567890');
 	let avatarPreview = $state<string | null>(null);
+	let compressedAvatarBlob = $state<Blob | null>(null);
 	let fileInput: HTMLInputElement | null = $state(null);
 
 	let isSubmitting = $state(false);
 	let successMsg = $state<string | null>(null);
 	let errorMsg = $state<string | null>(null);
 
-	function handleFileChange(e: Event) {
+	async function handleFileChange(e: Event) {
 		const target = e.target as HTMLInputElement;
 		const file = target.files?.[0];
 		if (file) {
-			const reader = new FileReader();
-			reader.onload = (event) => {
-				avatarPreview = event.target?.result as string;
-			};
-			reader.readAsDataURL(file);
+			try {
+				// Kompres avatar ke ukuran optimal profil (512x512 @ 0.8 quality)
+				const result = await compressImage(file, {
+					maxDimension: 512,
+					quality: 0.8,
+					mimeType: 'image/jpeg'
+				});
+				compressedAvatarBlob = result.blob;
+
+				const reader = new FileReader();
+				reader.onload = (event) => {
+					avatarPreview = event.target?.result as string;
+				};
+				reader.readAsDataURL(result.blob);
+			} catch (err) {
+				console.warn('Gagal mengompresi avatar, menggunakan file asli:', err);
+				const reader = new FileReader();
+				reader.onload = (event) => {
+					avatarPreview = event.target?.result as string;
+				};
+				reader.readAsDataURL(file);
+			}
 		}
 	}
 
@@ -53,6 +72,9 @@
 			formData.append('full_name', fullName.trim());
 			formData.append('email', email.trim());
 			formData.append('phone_number', phoneNumber.trim());
+			if (compressedAvatarBlob) {
+				formData.append('avatar', compressedAvatarBlob, 'avatar.jpg');
+			}
 
 			const res = await fetch('?/updateProfile', {
 				method: 'POST',

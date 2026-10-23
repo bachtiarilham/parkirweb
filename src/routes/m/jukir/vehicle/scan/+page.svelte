@@ -11,11 +11,13 @@
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
 	import { deserialize } from '$app/forms';
 	import { API_ENDPOINTS } from '$lib/api/endpoints.js';
+	import { compressImage, formatBytes } from '$lib/utils/image-compressor.js';
 
 	let videoElement: HTMLVideoElement | null = $state(null);
 	let stream: MediaStream | null = $state(null);
 	let isFlashOn = $state(false);
 	let isProcessing = $state(false);
+	let processingStage = $state<'compressing' | 'recognizing' | ''>('');
 	let detectedPlate = $state('');
 	let showBottomSheet = $state(false);
 	let fileInput: HTMLInputElement | null = $state(null);
@@ -71,39 +73,29 @@
 	async function captureAndPredict() {
 		if (isProcessing) return;
 		isProcessing = true;
+		processingStage = 'compressing';
 		errorMessage = '';
 
 		try {
 			if (!videoElement || !videoElement.videoWidth) {
 				errorMessage = 'Preview kamera belum siap';
 				isProcessing = false;
+				processingStage = '';
 				return;
 			}
 
-			const canvas = document.createElement('canvas');
-			canvas.width = videoElement.videoWidth;
-			canvas.height = videoElement.videoHeight;
-			const ctx = canvas.getContext('2d');
-			if (!ctx) {
-				errorMessage = 'Gagal memproses frame kamera';
-				isProcessing = false;
-				return;
-			}
+			// 1. Ambil frame kamera dan kompres ke 1280px @ 0.75 quality (turun dari ~5MB ke ~100KB)
+			const compressResult = await compressImage(videoElement, {
+				maxDimension: 1280,
+				quality: 0.75,
+				mimeType: 'image/jpeg'
+			});
 
-			ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-			const blob = await new Promise<Blob | null>((resolve) =>
-				canvas.toBlob(resolve, 'image/jpeg', 0.90)
-			);
-
-			if (!blob) {
-				errorMessage = 'Gagal mengonversi gambar';
-				isProcessing = false;
-				return;
-			}
+			processingStage = 'recognizing';
 
 			const formData = new FormData();
-			formData.append('image', blob, 'camera_capture.jpg');
-			formData.append('file', blob, 'camera_capture.jpg');
+			formData.append('image', compressResult.blob, 'camera_capture.jpg');
+			formData.append('file', compressResult.blob, 'camera_capture.jpg');
 
 			const res = await fetch('?/ocr', {
 				method: 'POST',
@@ -130,6 +122,7 @@
 			errorMessage = err.message || 'Gagal memproses gambar OCR';
 		} finally {
 			isProcessing = false;
+			processingStage = '';
 		}
 	}
 
@@ -139,12 +132,22 @@
 		if (!file) return;
 
 		isProcessing = true;
+		processingStage = 'compressing';
 		errorMessage = '';
 
 		try {
+			// 1. Kompres gambar dari galeri (bisa 8MB-15MB dari kamera HP) ke maks 1280px @ 0.75 quality
+			const compressResult = await compressImage(file, {
+				maxDimension: 1280,
+				quality: 0.75,
+				mimeType: 'image/jpeg'
+			});
+
+			processingStage = 'recognizing';
+
 			const formData = new FormData();
-			formData.append('image', file, file.name);
-			formData.append('file', file, file.name);
+			formData.append('image', compressResult.blob, file.name);
+			formData.append('file', compressResult.blob, file.name);
 
 			const res = await fetch('?/ocr', {
 				method: 'POST',
@@ -171,6 +174,7 @@
 			errorMessage = err.message || 'Terjadi kesalahan saat memproses gambar';
 		} finally {
 			isProcessing = false;
+			processingStage = '';
 			target.value = '';
 		}
 	}
@@ -262,6 +266,21 @@
 				Posisikan plat nomor kendaraan di dalam bingkai
 			</span>
 		</div>
+
+		<!-- Processing & Compression Status Overlay -->
+		{#if isProcessing}
+			<div class="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex flex-col items-center justify-center z-30 animate-in fade-in duration-150">
+				<div class="px-5 py-3.5 rounded-2xl bg-[#03045E]/85 border border-[#00B4D8]/50 text-center space-y-2 shadow-2xl shadow-sky-950/60 max-w-xs mx-4">
+					<div class="w-7 h-7 border-2.5 border-[#00B4D8] border-t-transparent rounded-full animate-spin mx-auto"></div>
+					<div class="text-xs font-bold text-white tracking-wide">
+						{processingStage === 'compressing' ? '⚡ Mengompresi Gambar...' : '🔍 Memindai Plat Nomor...'}
+					</div>
+					<div class="text-[10px] text-sky-200/80">
+						{processingStage === 'compressing' ? 'Mengoptimalkan muatan jaringan' : 'Inference via FastALPR (ONNX)'}
+					</div>
+				</div>
+			</div>
+		{/if}
 	</div>
 
 	<!-- ── 3. Bottom Camera Controls ─────────────────────────────────── -->
