@@ -7,35 +7,63 @@
 	import TruckIcon from '@lucide/svelte/icons/truck';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import CalendarIcon from '@lucide/svelte/icons/calendar';
+	import FilterIcon from '@lucide/svelte/icons/filter';
 	import { formatCurrency } from '$lib/utils/format-currency';
+	import DateRangeFilterModal, { type RangePreset } from '$lib/components/m/DateRangeFilterModal.svelte';
 
 	let { data } = $props();
 
 	let filterTab = $state<'ALL' | 'PARKIR' | 'MEMBER'>('ALL');
+	let isFilterModalOpen = $state(false);
+	let selectedDatePreset = $state<RangePreset>('ALL');
+	let customStartDate = $state('');
+	let customEndDate = $state('');
 
 	const filteredSessions = $derived(
 		(data.sessions || []).filter((s: any) => {
-			if (filterTab === 'ALL') return true;
-			if (filterTab === 'PARKIR') return !s.is_membership;
-			if (filterTab === 'MEMBER') return s.is_membership;
+			if (filterTab === 'PARKIR' && s.is_membership) return false;
+			if (filterTab === 'MEMBER' && !s.is_membership) return false;
+
+			if (selectedDatePreset === 'TODAY' && s.check_in_time) {
+				const today = new Date().toISOString().slice(0, 10);
+				return s.check_in_time.startsWith(today);
+			}
 			return true;
 		})
 	);
+
+	function handleApplyFilter(preset: RangePreset, start?: string, end?: string) {
+		selectedDatePreset = preset;
+		if (start) customStartDate = start;
+		if (end) customEndDate = end;
+	}
 </script>
 
 <div class="space-y-4 pb-12 select-none">
 	<!-- ── 1. Header (Identik TransactionHistoryScreen.kt) ────────── -->
-	<div class="flex items-center gap-3 pt-1">
+	<div class="flex items-center justify-between pt-1">
+		<div class="flex items-center gap-3">
+			<button
+				onclick={() => history.back()}
+				class="w-10 h-10 rounded-full bg-white/70 hover:bg-white border border-slate-200 flex items-center justify-center text-[#03045E] shadow-sm active:scale-95 transition"
+				aria-label="Kembali"
+			>
+				<ChevronLeftIcon class="w-5 h-5 text-[#0077B6]" />
+			</button>
+			<h1 class="text-lg font-black text-[#03045E] tracking-tight">
+				Riwayat Transaksi
+			</h1>
+		</div>
+
+		<!-- Date Filter Button -->
 		<button
-			onclick={() => history.back()}
-			class="w-10 h-10 rounded-full bg-white/70 hover:bg-white border border-slate-200 flex items-center justify-center text-[#03045E] shadow-sm active:scale-95 transition"
-			aria-label="Kembali"
+			type="button"
+			onclick={() => (isFilterModalOpen = true)}
+			class="w-10 h-10 rounded-full border border-slate-200 bg-white/80 hover:bg-white flex items-center justify-center text-[#0077B6] shadow-2xs active:scale-95 transition cursor-pointer"
+			aria-label="Filter Tanggal"
 		>
-			<ChevronLeftIcon class="w-5 h-5 text-[#0077B6]" />
+			<FilterIcon class="w-4 h-4" />
 		</button>
-		<h1 class="text-lg font-black text-[#03045E] tracking-tight">
-			Riwayat Transaksi
-		</h1>
 	</div>
 
 	<!-- ── 2. Tab Segment Bar ───────────────────────────────────────── -->
@@ -119,4 +147,14 @@
 			<div class="text-[11px] text-slate-400 mt-0.5">Transaksi parkir Anda akan dicatat di sini</div>
 		</LiquidGlassCard>
 	{/if}
+
+	<!-- Date Filter Modal -->
+	<DateRangeFilterModal
+		isOpen={isFilterModalOpen}
+		selectedPreset={selectedDatePreset}
+		startDate={customStartDate}
+		endDate={customEndDate}
+		onClose={() => (isFilterModalOpen = false)}
+		onApply={handleApplyFilter}
+	/>
 </div>

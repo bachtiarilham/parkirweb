@@ -9,48 +9,67 @@
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import CrownIcon from '@lucide/svelte/icons/crown';
+	import EditIcon from '@lucide/svelte/icons/edit';
+	import LanguageBottomSheet from '$lib/components/m/LanguageBottomSheet.svelte';
 
 	let { data } = $props();
 
 	let showLogoutModal = $state(false);
+	let showLanguageModal = $state(false);
+	let currentLanguage = $state('ID');
 	const isJukir = $derived((data.user?.role || '').toUpperCase().includes('OFFICER') || (data.user?.role || '').toUpperCase().includes('JUKIR'));
 </script>
 
 <div class="space-y-4 pb-12 select-none">
 	<!-- ── 1. Top Header ────────────────────────────────────────────── -->
-	<div class="flex items-center gap-3 pt-1">
-		<button
-			onclick={() => history.back()}
-			class="w-10 h-10 rounded-full bg-white/70 hover:bg-white border border-slate-200 flex items-center justify-center text-[#03045E] shadow-sm active:scale-95 transition"
-			aria-label="Kembali"
+	<div class="flex items-center justify-between pt-1">
+		<div class="flex items-center gap-3">
+			<button
+				onclick={() => history.back()}
+				class="w-10 h-10 rounded-full bg-white/70 hover:bg-white border border-slate-200 flex items-center justify-center text-[#03045E] shadow-sm active:scale-95 transition"
+				aria-label="Kembali"
+			>
+				<ChevronLeftIcon class="w-5 h-5 text-[#0077B6]" />
+			</button>
+			<h1 class="text-lg font-black text-[#03045E] tracking-tight">
+				Pengaturan & Profil
+			</h1>
+		</div>
+
+		<a
+			href="/m/settings/profile/edit"
+			class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-50 text-[#0077B6] hover:bg-sky-100 text-xs font-bold transition border border-sky-100 shadow-2xs"
 		>
-			<ChevronLeftIcon class="w-5 h-5 text-[#0077B6]" />
-		</button>
-		<h1 class="text-lg font-black text-[#03045E] tracking-tight">
-			Pengaturan & Profil
-		</h1>
+			<EditIcon class="w-3.5 h-3.5" />
+			<span>Edit</span>
+		</a>
 	</div>
 
 	<!-- ── 2. Profile Card ──────────────────────────────────────────── -->
-	<LiquidGlassCard variant="light" hasTopGloss={true} class="p-5">
-		<div class="flex items-center gap-4">
-			<div class="w-16 h-16 rounded-full bg-gradient-to-tr from-[#0077B6] to-[#00B4D8] text-white font-black text-2xl flex items-center justify-center border-2 border-white shadow-md">
-				{(data.user?.full_name || 'U').charAt(0).toUpperCase()}
-			</div>
+	<a href="/m/settings/profile/edit" class="block group">
+		<LiquidGlassCard variant="light" hasTopGloss={true} class="p-5 group-hover:border-sky-400 transition">
+			<div class="flex items-center gap-4">
+				<div class="w-16 h-16 rounded-full bg-gradient-to-tr from-[#0077B6] to-[#00B4D8] text-white font-black text-2xl flex items-center justify-center border-2 border-white shadow-md shrink-0">
+					{(data.user?.full_name || 'U').charAt(0).toUpperCase()}
+				</div>
 
-			<div class="flex-1 min-w-0">
-				<h2 class="text-base font-bold text-[#03045E] truncate">
-					{data.user?.full_name || 'Pengguna LineSpot'}
-				</h2>
-				<p class="text-xs text-[#64748B] font-mono truncate">
-					{data.user?.email || 'user@linespot.id'}
-				</p>
-				<span class="inline-block mt-1 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-100 text-[#0077B6]">
-					{isJukir ? 'PETUGAS PARKIR' : 'PELANGGAN (CUSTOMER)'}
-				</span>
+				<div class="flex-1 min-w-0">
+					<div class="flex items-center justify-between">
+						<h2 class="text-base font-bold text-[#03045E] truncate">
+							{data.user?.full_name || 'Pengguna LineSpot'}
+						</h2>
+						<ChevronRightIcon class="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition" />
+					</div>
+					<p class="text-xs text-[#64748B] font-mono truncate">
+						{data.user?.email || 'user@linespot.id'}
+					</p>
+					<span class="inline-block mt-1 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-100 text-[#0077B6]">
+						{isJukir ? 'PETUGAS PARKIR' : 'PELANGGAN (CUSTOMER)'}
+					</span>
+				</div>
 			</div>
-		</div>
-	</LiquidGlassCard>
+		</LiquidGlassCard>
+	</a>
 
 	<!-- ── 3. Menu Navigation List (Identik SettingsProfileScreen.kt) ── -->
 	<div class="space-y-2">
@@ -96,6 +115,31 @@
 			</LiquidGlassCard>
 		</a>
 
+		<!-- Pilihan Bahasa (Language Selection) -->
+		<button
+			type="button"
+			onclick={() => (showLanguageModal = true)}
+			class="w-full text-left group"
+		>
+			<LiquidGlassCard variant="light" hasTopGloss={false} class="p-3.5 group-hover:border-sky-400 transition">
+				<div class="flex items-center justify-between">
+					<div class="flex items-center gap-3">
+						<div class="w-9 h-9 rounded-xl bg-sky-50 text-[#0077B6] flex items-center justify-center border border-sky-100">
+							<GlobeIcon class="w-5 h-5" />
+						</div>
+						<div>
+							<div class="text-xs font-bold text-[#03045E]">Bahasa (Language)</div>
+							<div class="text-[10px] text-[#64748B]">{currentLanguage === 'ID' ? 'Bahasa Indonesia' : 'English (US)'}</div>
+						</div>
+					</div>
+					<div class="flex items-center gap-1.5">
+						<span class="text-[10px] font-bold text-slate-400 uppercase bg-slate-100 px-2 py-0.5 rounded">{currentLanguage}</span>
+						<ChevronRightIcon class="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition" />
+					</div>
+				</div>
+			</LiquidGlassCard>
+		</button>
+
 		<!-- Bantuan & Support -->
 		<button
 			type="button"
@@ -135,6 +179,14 @@
 			</div>
 		</button>
 	</div>
+
+	<!-- Language Selection Bottom Sheet -->
+	<LanguageBottomSheet
+		isOpen={showLanguageModal}
+		currentLang={currentLanguage}
+		onClose={() => (showLanguageModal = false)}
+		onSelectLang={(lang) => (currentLanguage = lang)}
+	/>
 
 	<!-- Logout Confirmation Modal -->
 	{#if showLogoutModal}

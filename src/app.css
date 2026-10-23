@@ -9,6 +9,7 @@
 @plugin "@tailwindcss/typography";
 
 @theme inline {
+	--font-editorial: 'Newsreader', Georgia, Cambria, 'Times New Roman', serif;
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-card: var(--card);

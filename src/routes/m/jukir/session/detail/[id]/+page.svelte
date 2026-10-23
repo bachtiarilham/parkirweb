@@ -9,6 +9,7 @@
 	import CheckCircle2Icon from '@lucide/svelte/icons/check-circle-2';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import { formatCurrency } from '$lib/utils/format-currency';
+	import PaymentResultModal from '$lib/components/m/PaymentResultModal.svelte';
 
 	let { data } = $props();
 
@@ -213,49 +214,17 @@
 		</button>
 	</div>
 
-	<!-- ── 7. Payment Result Modal (PaymentResultScreen 1:1) ─────────── -->
-	{#if paymentSuccess}
-		<div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-			<div class="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl text-center space-y-4 animate-in zoom-in-95 duration-200">
-				<!-- Big Green Checkmark -->
-				<div class="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
-					<CheckCircle2Icon class="w-10 h-10" />
-				</div>
-
-				<div>
-					<h3 class="text-lg font-black text-[#03045E]">Pembayaran Berhasil!</h3>
-					<p class="text-xs text-[#64748B] mt-0.5">Sesi parkir telah berhasil diselesaikan.</p>
-				</div>
-
-				<!-- Receipt Summary Box -->
-				<div class="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 text-left space-y-2">
-					<div class="flex justify-between text-xs">
-						<span class="text-[#64748B]">No. Bukti</span>
-						<span class="font-mono font-bold text-[#03045E]">{receiptNumber}</span>
-					</div>
-					<div class="flex justify-between text-xs">
-						<span class="text-[#64748B]">Nomor Plat</span>
-						<span class="font-bold text-[#03045E]">{data.plateNumber}</span>
-					</div>
-					<div class="flex justify-between text-xs">
-						<span class="text-[#64748B]">Total Bayar</span>
-						<span class="font-black text-[#0077B6]">{formatCurrency(data.amount || 2000)}</span>
-					</div>
-					<div class="flex justify-between text-xs">
-						<span class="text-[#64748B]">Status</span>
-						<span class="font-bold text-emerald-600">LUNAS</span>
-					</div>
-				</div>
-
-				<!-- Button Return to Home -->
-				<button
-					onclick={() => goto('/m/jukir')}
-					class="w-full py-3.5 rounded-xl bg-[#0077B6] hover:bg-[#0096C7] text-white font-bold text-sm shadow-lg shadow-[#0077B6]/30 active:scale-[0.98] transition flex items-center justify-center gap-2"
-				>
-					<span>Kembali ke Beranda</span>
-					<ArrowRightIcon class="w-4 h-4" />
-				</button>
-			</div>
-		</div>
-	{/if}
+	<!-- ── 7. Payment Result Modal (Porting 1:1 PaymentResult.kt) ──── -->
+	<PaymentResultModal
+		isOpen={paymentSuccess}
+		status="SUCCESS"
+		orderId={receiptNumber}
+		txCode={data.id}
+		plateNumber={data.plateNumber}
+		branchName="Area Tepi Jalan"
+		amount={data.amount || 2000}
+		paymentMethod="QRIS Dinamis / Tunai"
+		transactionTime={new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB'}
+		onClose={() => goto('/m/jukir')}
+	/>
 </div>

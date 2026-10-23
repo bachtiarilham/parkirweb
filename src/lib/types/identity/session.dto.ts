@@ -29,6 +29,22 @@ export interface Token {
 	expires_in?: number;
 }
 
+export interface AccessibleScope {
+	scope_id: number;
+	role: string;
+	tenant_id?: number | null;
+	tenant_code?: string | null;
+	tenant_name?: string | null;
+	branch_id?: number | null;
+	branch_code?: string | null;
+	branch_name?: string | null;
+}
+
+export interface PreAuthResult {
+	pre_auth_token: string;
+	accessible_scopes: AccessibleScope[];
+}
+
 export interface LoginResult {
 	tokens: Token;
 	user?: UserProfile;

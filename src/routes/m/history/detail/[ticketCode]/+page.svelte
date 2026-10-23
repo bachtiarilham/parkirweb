@@ -13,6 +13,27 @@
 	const amount = $derived(Number(session?.amount) || 2000);
 	const plate = $derived(session?.plate_number || 'B 1234 XYZ');
 	const isPaid = $derived((session?.status || '').toUpperCase() === 'COMPLETED' || (session?.status || '').toUpperCase() === 'PAID');
+
+	let copiedToast = $state(false);
+
+	async function handleShare() {
+		const shareData = {
+			title: `Struk Parkir LineSpot - ${plate}`,
+			text: `Bukti Pembayaran Parkir LineSpot: ${plate} - ${formatCurrency(amount)}`,
+			url: window.location.href
+		};
+		if (navigator.share) {
+			try {
+				await navigator.share(shareData);
+			} catch (e) {
+				// User cancelled or share failed
+			}
+		} else {
+			await navigator.clipboard.writeText(window.location.href);
+			copiedToast = true;
+			setTimeout(() => (copiedToast = false), 2500);
+		}
+	}
 </script>
 
 <div class="space-y-4 pb-12 select-none">
@@ -30,6 +51,12 @@
 		</h1>
 		<div class="w-10"></div>
 	</div>
+
+	{#if copiedToast}
+		<div class="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-bold text-center animate-in fade-in duration-150">
+			✓ Link struk berhasil disalin ke papan klip!
+		</div>
+	{/if}
 
 	<!-- ── 2. Digital Receipt Card (Identik TransactionInvoiceScreen.kt)  -->
 	<LiquidGlassCard variant="light" hasTopGloss={true} class="p-6">
@@ -89,8 +116,8 @@
 
 		<button
 			type="button"
-			onclick={() => alert('Fitur berbagi struk siap digunakan.')}
-			class="py-3 rounded-xl bg-[#0077B6] hover:bg-[#0096C7] text-white font-bold text-xs shadow-md shadow-[#0077B6]/20 flex items-center justify-center gap-2 active:scale-95 transition"
+			onclick={handleShare}
+			class="py-3 rounded-xl bg-[#0077B6] hover:bg-[#0096C7] text-white font-bold text-xs shadow-md shadow-[#0077B6]/20 flex items-center justify-center gap-2 active:scale-95 transition cursor-pointer"
 		>
 			<Share2Icon class="w-4 h-4" />
 			<span>Bagikan</span>

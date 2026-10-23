@@ -11,8 +11,10 @@
 	import TruckIcon from '@lucide/svelte/icons/truck';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { formatCurrency } from '$lib/utils/format-currency';
+	import ContextSwitcherModal from '$lib/components/auth/ContextSwitcherModal.svelte';
 
 	let { data } = $props();
+	let isSwitcherOpen = $state(false);
 
 	function getDuration(checkInTimeStr: string): string {
 		try {
@@ -71,11 +73,17 @@
 			{data.user?.full_name || 'Petugas LineSpot'}
 		</h1>
 
-		<!-- Location Chip -->
-		<div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EFF1F4] text-[#64748B] text-xs font-medium mt-1">
+		<!-- Location Chip / Workspace Switcher Trigger -->
+		<button
+			type="button"
+			onclick={() => (isSwitcherOpen = true)}
+			class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EFF1F4] hover:bg-slate-200 text-[#0077B6] hover:text-[#0096C7] text-xs font-semibold mt-1.5 transition active:scale-95 shadow-sm border border-slate-200 cursor-pointer"
+			title="Klik untuk berpindah cabang tugas"
+		>
 			<MapPinIcon class="w-3.5 h-3.5 text-[#0077B6]" />
-			<span>{data.user?.branchCode || 'Zona A - Malioboro Utara'}</span>
-		</div>
+			<span>{data.user?.branchCode || 'Pilih Cabang'}</span>
+			<span class="text-[10px] text-slate-500 font-bold bg-white/80 px-1.5 py-0.5 rounded-full border border-slate-300">Ganti ▾</span>
+		</button>
 	</div>
 
 	<!-- ── 3. Operational Status Bar (Liquid Glass Chips) ───────────── -->
@@ -199,4 +207,11 @@
 			</LiquidGlassCard>
 		{/if}
 	</div>
+
+	<!-- Modal Switcher Context Cabang -->
+	<ContextSwitcherModal
+		bind:isOpen={isSwitcherOpen}
+		currentBranchId={data.user?.branchId}
+		currentRole={data.user?.role_code}
+	/>
 </div>

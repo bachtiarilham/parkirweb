@@ -8,10 +8,13 @@ import {
 import { RegisterSchema } from "$lib/schemas/auth.schema.js";
 import { ApiError } from "$lib/server/api/client.js";
 import { parseJwt } from "$lib/utils/jwt.js";
+import { resolveRedirectPath } from "$lib/utils/resolve-redirect-path.js";
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types.js";
 
-export const load: PageServerLoad = async () => {};
+export const load: PageServerLoad = async () => {
+	return {};
+};
 
 export const actions: Actions = {
 	default: async ({ request, cookies, fetch, locals }) => {
@@ -90,17 +93,10 @@ export const actions: Actions = {
 			const parsedJwt = parseJwt(loginResult.accessToken);
 			if (parsedJwt) {
 				const userProfile = {
-					id: String(parsedJwt.user_id),
-					name: parsedJwt.full_name || parsedJwt.user_code || parseResult.data.name,
+					user_id: String(parsedJwt.user_id),
+					full_name: parsedJwt.full_name || parsedJwt.user_code || parseResult.data.name,
 					email: parseResult.data.email,
-					username: parsedJwt.user_code || parseResult.data.username,
-					role: (parsedJwt.role_code?.toLowerCase().includes("tenant")
-						? "tenant"
-						: parsedJwt.role_code?.toLowerCase().includes("branch")
-						? "branch"
-						: parsedJwt.role_code?.toLowerCase().includes("system")
-						? "system"
-						: "admin") as any,
+					role_code: parsedJwt.role_code ? String(parsedJwt.role_code) : null,
 					tenantId: parsedJwt.tenant_id ? String(parsedJwt.tenant_id) : null,
 					tenantCode: parsedJwt.tenant_code || null,
 					branchId: parsedJwt.branch_id ? String(parsedJwt.branch_id) : null,
@@ -116,16 +112,8 @@ export const actions: Actions = {
 				});
 			}
 
-			const rawRole = (parsedJwt?.role_code || "").toUpperCase();
-			if (rawRole.includes("TENANT")) {
-				redirect(302, "/dashboard/tenant");
-			} else if (rawRole.includes("BRANCH")) {
-				redirect(302, "/dashboard/branch");
-			} else if (rawRole.includes("SYSTEM") || rawRole.includes("SUPER")) {
-				redirect(302, "/dashboard/system");
-			} else {
-				redirect(302, "/dashboard/tenant");
-			}
+			const target = resolveRedirectPath(parsedJwt?.role_code);
+			redirect(302, target);
 		} catch (err: any) {
 			if (err?.status === 302 || err?.location) throw err;
 			if (err instanceof ApiError) {

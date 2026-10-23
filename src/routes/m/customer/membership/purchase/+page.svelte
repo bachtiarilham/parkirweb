@@ -84,9 +84,9 @@
 
 	<!-- ── 2. Step 1: Pilih Paket ───────────────────────────────────── -->
 	<div class="space-y-2">
-		<label class="text-xs font-black text-[#03045E] uppercase tracking-wider block px-1">
+		<span class="text-xs font-black text-[#03045E] uppercase tracking-wider block px-1">
 			1. Pilih Paket Langganan
-		</label>
+		</span>
 
 		<div class="space-y-2.5">
 			{#each plans as plan}

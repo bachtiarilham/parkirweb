@@ -13,7 +13,10 @@
 
 	let { data } = $props();
 
-	let plateNumber = $state(data.plateNumber || '');
+	let plateNumber = $state('');
+	$effect(() => {
+		plateNumber = data.plateNumber || '';
+	});
 	let selectedVehicle = $state<'MOTOR' | 'MOBIL' | 'TRUK'>('MOTOR');
 	let isSubmitting = $state(false);
 	let errorMessage = $state<string | null>(null);
@@ -133,9 +136,9 @@
 
 	<!-- ── 4. Jenis Kendaraan Section (VehicleSelector) ─────────────── -->
 	<div class="space-y-2">
-		<label class="text-xs font-black text-[#03045E] uppercase tracking-wider block px-1">
+		<span class="text-xs font-black text-[#03045E] uppercase tracking-wider block px-1">
 			Jenis Kendaraan
-		</label>
+		</span>
 
 		<div class="grid grid-cols-3 gap-2.5">
 			<!-- Motor Chip -->

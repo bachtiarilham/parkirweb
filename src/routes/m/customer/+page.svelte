@@ -11,10 +11,12 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import { formatCurrency } from '$lib/utils/format-currency';
+	import UnavailableBottomSheet from '$lib/components/m/UnavailableBottomSheet.svelte';
 
 	let { data } = $props();
 
 	const isMember = $derived(!!data.activeContract);
+	let showScanQrUnavailable = $state(false);
 
 	const availablePlans = [
 		{
@@ -131,11 +133,11 @@
 		<div class="grid grid-cols-3 gap-2 pt-3 border-t border-slate-200/80">
 			<!-- 1. Beli / Kelola Paket -->
 			<a
-				href="/m/customer/membership/purchase"
+				href={isMember ? '/m/customer/membership/detail' : '/m/customer/membership/purchase'}
 				class="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-[#03045E] transition active:scale-95 text-center"
 			>
 				<CrownIcon class="w-5 h-5 text-[#FFB300] mb-1" />
-				<span class="text-[11px] font-bold leading-tight">{isMember ? 'Kelola' : 'Beli Paket'}</span>
+				<span class="text-[11px] font-bold leading-tight">{isMember ? 'Detail VIP' : 'Beli Paket'}</span>
 			</a>
 
 			<!-- 2. Riwayat -->
@@ -150,14 +152,21 @@
 			<!-- 3. Scan QR Masuk (Identik CustomerDashboardScreen.kt) -->
 			<button
 				type="button"
-				onclick={() => alert('Fitur Scan QR Masuk akan segera hadir.')}
-				class="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-[#03045E] transition active:scale-95 text-center"
+				onclick={() => (showScanQrUnavailable = true)}
+				class="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-[#03045E] transition active:scale-95 text-center cursor-pointer"
 			>
 				<QrCodeIcon class="w-5 h-5 text-[#0077B6] mb-1" />
 				<span class="text-[11px] font-bold leading-tight">Scan QR</span>
 			</button>
 		</div>
 	</LiquidGlassCard>
+
+	<!-- Unavailable Dialog for Scan QR -->
+	<UnavailableBottomSheet
+		isOpen={showScanQrUnavailable}
+		featureName="Scan QR Masuk Tepi Jalan"
+		onClose={() => (showScanQrUnavailable = false)}
+	/>
 
 	<!-- ── 4. PackageMembershipSection (Pilihan Paket Berlangganan) ──── -->
 	<div>

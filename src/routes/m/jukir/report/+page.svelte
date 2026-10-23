@@ -7,11 +7,18 @@
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import CalendarIcon from '@lucide/svelte/icons/calendar';
+	import BikeIcon from '@lucide/svelte/icons/bike';
+	import TruckIcon from '@lucide/svelte/icons/truck';
+	import FilterIcon from '@lucide/svelte/icons/filter';
 	import { formatCurrency } from '$lib/utils/format-currency';
+	import DateRangeFilterModal, { type RangePreset } from '$lib/components/m/DateRangeFilterModal.svelte';
 
 	let { data } = $props();
 
-	let selectedRange = $state<'TODAY' | '7DAYS' | '30DAYS'>('TODAY');
+	let selectedRange = $state<RangePreset>('TODAY');
+	let isFilterModalOpen = $state(false);
+	let customStartDate = $state('');
+	let customEndDate = $state('');
 
 	// Simulated daily bar chart
 	const chartDays = [
@@ -27,21 +34,39 @@
 	function handleDownload() {
 		alert('Laporan berhasil diunduh dalam format PDF.');
 	}
+
+	function handleApplyFilter(preset: RangePreset, start?: string, end?: string) {
+		selectedRange = preset;
+		if (start) customStartDate = start;
+		if (end) customEndDate = end;
+	}
 </script>
 
 <div class="space-y-4 pb-12 select-none">
 	<!-- ── 1. SimpleHeader (Identik TransactionReportScreen.kt) ───────── -->
-	<div class="flex items-center gap-3 pt-1">
+	<div class="flex items-center justify-between pt-1">
+		<div class="flex items-center gap-3">
+			<button
+				onclick={() => goto('/m/jukir')}
+				class="w-10 h-10 rounded-full bg-white/70 hover:bg-white border border-slate-200 flex items-center justify-center text-[#03045E] shadow-sm active:scale-95 transition"
+				aria-label="Kembali"
+			>
+				<ChevronLeftIcon class="w-5 h-5 text-[#0077B6]" />
+			</button>
+			<h1 class="text-lg font-black text-[#03045E] tracking-tight">
+				Laporan
+			</h1>
+		</div>
+
+		<!-- Filter Button -->
 		<button
-			onclick={() => goto('/m/jukir')}
-			class="w-10 h-10 rounded-full bg-white/70 hover:bg-white border border-slate-200 flex items-center justify-center text-[#03045E] shadow-sm active:scale-95 transition"
-			aria-label="Kembali"
+			type="button"
+			onclick={() => (isFilterModalOpen = true)}
+			class="w-10 h-10 rounded-full border border-slate-200 bg-white/80 hover:bg-white flex items-center justify-center text-[#0077B6] shadow-2xs active:scale-95 transition cursor-pointer"
+			aria-label="Filter Tanggal"
 		>
-			<ChevronLeftIcon class="w-5 h-5 text-[#0077B6]" />
+			<FilterIcon class="w-4 h-4" />
 		</button>
-		<h1 class="text-lg font-black text-[#03045E] tracking-tight">
-			Laporan
-		</h1>
 	</div>
 
 	<!-- ── 2. FilterCard (Date Range Selector) ───────────────────────── -->
@@ -51,30 +76,43 @@
 				<CalendarIcon class="w-3.5 h-3.5 text-[#0077B6]" />
 				<span>Periode Laporan</span>
 			</div>
-			<span class="text-[10px] text-[#64748B]">Otomatis</span>
+			<button
+				type="button"
+				onclick={() => (isFilterModalOpen = true)}
+				class="text-[10px] text-[#0077B6] font-bold hover:underline"
+			>
+				Pilih Tanggal ▾
+			</button>
 		</div>
 
-		<div class="grid grid-cols-3 gap-2">
+		<div class="grid grid-cols-4 gap-1.5">
 			<button
 				type="button"
 				onclick={() => (selectedRange = 'TODAY')}
-				class="py-1.5 px-2 rounded-xl text-xs font-bold transition {selectedRange === 'TODAY' ? 'bg-[#0077B6] text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
+				class="py-1.5 px-2 rounded-xl text-xs font-bold transition text-center {selectedRange === 'TODAY' ? 'bg-[#0077B6] text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
 			>
 				Hari Ini
 			</button>
 			<button
 				type="button"
 				onclick={() => (selectedRange = '7DAYS')}
-				class="py-1.5 px-2 rounded-xl text-xs font-bold transition {selectedRange === '7DAYS' ? 'bg-[#0077B6] text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
+				class="py-1.5 px-2 rounded-xl text-xs font-bold transition text-center {selectedRange === '7DAYS' ? 'bg-[#0077B6] text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
 			>
 				7 Hari
 			</button>
 			<button
 				type="button"
 				onclick={() => (selectedRange = '30DAYS')}
-				class="py-1.5 px-2 rounded-xl text-xs font-bold transition {selectedRange === '30DAYS' ? 'bg-[#0077B6] text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
+				class="py-1.5 px-2 rounded-xl text-xs font-bold transition text-center {selectedRange === '30DAYS' ? 'bg-[#0077B6] text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
 			>
 				30 Hari
+			</button>
+			<button
+				type="button"
+				onclick={() => (isFilterModalOpen = true)}
+				class="py-1.5 px-2 rounded-xl text-xs font-bold transition text-center {selectedRange === 'CUSTOM' ? 'bg-[#0077B6] text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
+			>
+				Kustom
 			</button>
 		</div>
 	</LiquidGlassCard>
@@ -135,13 +173,56 @@
 		</LiquidGlassCard>
 	</div>
 
-	<!-- ── 5. Download Button ────────────────────────────────────────── -->
+	<!-- ── 5. Vehicle Breakdown Card (Motor / Mobil / Truk) ──────────── -->
+	<LiquidGlassCard variant="light" hasTopGloss={false} class="p-4 space-y-3">
+		<h3 class="text-xs font-black text-[#03045E] uppercase tracking-wider">
+			Distribusi Kendaraan
+		</h3>
+
+		<div class="space-y-2 text-xs">
+			<div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+				<div class="flex items-center gap-2">
+					<BikeIcon class="w-4 h-4 text-[#0077B6]" />
+					<span class="font-bold text-[#03045E]">Sepeda Motor</span>
+				</div>
+				<span class="font-black text-slate-800">28 Unit</span>
+			</div>
+
+			<div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+				<div class="flex items-center gap-2">
+					<CarIcon class="w-4 h-4 text-[#023E8A]" />
+					<span class="font-bold text-[#03045E]">Mobil Pribadi</span>
+				</div>
+				<span class="font-black text-slate-800">12 Unit</span>
+			</div>
+
+			<div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+				<div class="flex items-center gap-2">
+					<TruckIcon class="w-4 h-4 text-amber-600" />
+					<span class="font-bold text-[#03045E]">Truk / Bus</span>
+				</div>
+				<span class="font-black text-slate-800">2 Unit</span>
+			</div>
+		</div>
+	</LiquidGlassCard>
+
+	<!-- ── 6. Download Button ────────────────────────────────────────── -->
 	<button
 		type="button"
 		onclick={handleDownload}
-		class="w-full py-3.5 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 text-[#03045E] font-bold text-xs shadow-sm active:scale-[0.98] transition flex items-center justify-center gap-2"
+		class="w-full py-3.5 rounded-2xl bg-[#0077B6] hover:bg-[#0096C7] text-white font-bold text-xs shadow-md shadow-[#0077B6]/30 active:scale-[0.98] transition flex items-center justify-center gap-2 cursor-pointer"
 	>
-		<DownloadIcon class="w-4 h-4 text-[#0077B6]" />
+		<DownloadIcon class="w-4 h-4" />
 		<span>Unduh Laporan Shift (PDF)</span>
 	</button>
+
+	<!-- Date Filter Modal -->
+	<DateRangeFilterModal
+		isOpen={isFilterModalOpen}
+		selectedPreset={selectedRange}
+		startDate={customStartDate}
+		endDate={customEndDate}
+		onClose={() => (isFilterModalOpen = false)}
+		onApply={handleApplyFilter}
+	/>
 </div>

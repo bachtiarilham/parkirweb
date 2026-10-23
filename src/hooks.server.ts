@@ -5,6 +5,7 @@ import { ApiError } from "$lib/server/api/client.js";
 import { getAuthTokens, getUserContext } from "$lib/utils/getCookies";
 import { canAccessPage } from "$lib/rbac";
 import { runWithRequestContext } from "$lib/server/context.js";
+import { resolveRedirectPath } from "$lib/utils/resolve-redirect-path.js";
 
 export const ACCESS_TOKEN_COOKIE = "access_token";
 export const REFRESH_TOKEN_COOKIE = "refresh_token";
@@ -18,6 +19,8 @@ async function refreshAuthSession(cookies: import("@sveltejs/kit").Cookies, cust
 	const refreshToken = cookies.get(REFRESH_TOKEN_COOKIE);
 	if (!refreshToken) return null;
 
+	const isSecure = process.env.NODE_ENV === "production";
+
 	try {
 		const tokens = await sessionService.refreshSession(refreshToken, {
 			fetch: customFetch,
@@ -27,6 +30,7 @@ async function refreshAuthSession(cookies: import("@sveltejs/kit").Cookies, cust
 			path: "/",
 			httpOnly: true,
 			sameSite: "lax",
+			secure: isSecure,
 			maxAge: tokens.expiresIn || 60 * 60 * 24,
 		});
 
@@ -35,6 +39,7 @@ async function refreshAuthSession(cookies: import("@sveltejs/kit").Cookies, cust
 				path: "/",
 				httpOnly: true,
 				sameSite: "lax",
+				secure: isSecure,
 				maxAge: 60 * 60 * 24 * 30,
 			});
 		}
@@ -56,6 +61,7 @@ async function refreshAuthSession(cookies: import("@sveltejs/kit").Cookies, cust
 				path: "/",
 				httpOnly: true,
 				sameSite: "lax",
+				secure: isSecure,
 				maxAge: 60 * 60 * 24 * 7,
 			});
 		}
@@ -112,25 +118,34 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// E. Centralized Route Guard (LineSpot Mobile 1:1)
 	const pathname = event.url.pathname;
-	const isAuthRoute = pathname.startsWith("/m/login");
+	const isAuthRoute =
+		pathname.startsWith("/login") ||
+		pathname.startsWith("/register") ||
+		pathname.startsWith("/forgot-password") ||
+		pathname.startsWith("/reset-password") ||
+		pathname.startsWith("/lock") ||
+		pathname.startsWith("/logout");
+
+	const isGuestOnlyRoute =
+		pathname.startsWith("/login") ||
+		pathname.startsWith("/register");
+
 	const isPublicRoute =
 		pathname === "/" ||
+		pathname.startsWith("/pricing") ||
 		pathname.startsWith("/m/customer") ||
+		pathname.startsWith("/m/dashboardcustomer") ||
 		pathname.startsWith("/m/ticket");
 
-	// Jika belum login (cookies tidak ada) tapi mengakses halaman privat -> redirect ke /m/login
+	// Jika belum login (cookies tidak ada) tapi mengakses halaman privat -> redirect ke /login
 	if (!isAuthenticated && !isAuthRoute && !isPublicRoute && !pathname.startsWith("/api")) {
-		redirect(302, "/m/login");
+		redirect(302, "/login");
 	}
 
-	// Jika sudah login tapi mengakses halaman login -> redirect ke halaman utama sesuai role
-	if (isAuthenticated && isAuthRoute && userContext) {
-		const rawRole = (userContext.roleCode || "").toUpperCase();
-		if (rawRole.includes("OFFICER") || rawRole.includes("JUKIR") || rawRole.includes("OPERATOR")) {
-			redirect(302, "/m/jukir");
-		} else {
-			redirect(302, "/m/customer");
-		}
+	// Jika sudah login tapi mengakses halaman guest-only (login/register) -> redirect ke halaman utama sesuai role
+	if (isAuthenticated && isGuestOnlyRoute && userContext) {
+		const target = resolveRedirectPath(userContext.roleCode);
+		redirect(302, target);
 	}
 
 	// F. RBAC Permission Check (Berdasarkan PAGE_ROLES)

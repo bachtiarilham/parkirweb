@@ -26,7 +26,10 @@ export const API_ENDPOINTS = {
 	// 1. IDENTITY & AUTH (SessionApiService & UserApiService)
 	// =========================================================================
 	AUTH: {
-		LOGIN: `${API_PREFIX_V1}/users/auth/login`, // POST
+		LOGIN: `${API_PREFIX_V1}/users/auth/login`, // POST (Pre-Auth)
+		SELECT_SCOPE: `${API_PREFIX_V1}/users/auth/select-scope`, // POST (Workspace Picker)
+		SWITCH_SCOPE: `${API_PREFIX_V1}/users/auth/switch-scope`, // POST (Context Switching)
+		SCOPES: `${API_PREFIX_V1}/users/auth/scopes`, // GET (Daftar Ruang Kerja)
 		REFRESH: `${API_PREFIX_V1}/users/auth/refresh`, // GET
 		LOGOUT: `${API_PREFIX_V1}/users/auth/logout`, // POST
 		FORGOT_PASSWORD: `${API_PREFIX_V1}/users/auth/forgot-password`, // POST
