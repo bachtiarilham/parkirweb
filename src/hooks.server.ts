@@ -134,7 +134,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 		pathname === "/" ||
 		pathname.startsWith("/pricing") ||
 		pathname.startsWith("/m/customer") ||
-		pathname.startsWith("/m/dashboardcustomer") ||
 		pathname.startsWith("/m/ticket");
 
 	// Jika belum login (cookies tidak ada) tapi mengakses halaman privat -> redirect ke /login

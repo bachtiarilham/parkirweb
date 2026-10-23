@@ -6,6 +6,7 @@
 	import MailIcon from '@lucide/svelte/icons/mail';
 	import LockIcon from '@lucide/svelte/icons/lock';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import UserPlusIcon from '@lucide/svelte/icons/user-plus';
 	import { onMount } from 'svelte';
 
@@ -43,9 +44,18 @@
 
 <AuthLiquidGlassBackdrop>
 	<div class="min-h-screen flex flex-col justify-center items-center px-5 py-8 relative z-10">
-		<!-- 1. Liquid Glass Logo Emblem -->
-		<div class="relative mb-4 group">
-			<div class="w-20 h-20 rounded-full bg-[#0F274E]/80 backdrop-blur-xl border-[1.5px] border-[#90E0EF]/50 shadow-2xl shadow-[#00B4D8]/30 flex items-center justify-center p-1 transition transform duration-500 hover:scale-105">
+		<!-- 0. Top Back to Home Button -->
+		<a
+			href="/"
+			class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-semibold text-[#90E0EF] hover:text-white transition backdrop-blur-md mb-5 shadow-sm group cursor-pointer"
+		>
+			<ArrowLeftIcon class="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
+			<span>Kembali ke Beranda</span>
+		</a>
+
+		<!-- 1. Liquid Glass Logo Emblem (clickable to home) -->
+		<a href="/" aria-label="Kembali ke Beranda" class="relative mb-4 group block cursor-pointer" title="Kembali ke Beranda">
+			<div class="w-20 h-20 rounded-full bg-[#0F274E]/80 backdrop-blur-xl border-[1.5px] border-[#90E0EF]/50 shadow-2xl shadow-[#00B4D8]/30 flex items-center justify-center p-1 transition transform duration-500 group-hover:scale-105 group-hover:border-[#00B4D8]">
 				<!-- Specular Top Gloss -->
 				<div class="absolute inset-x-2 top-0 h-8 rounded-t-full bg-gradient-to-b from-white/40 via-white/10 to-transparent pointer-events-none"></div>
 
@@ -53,7 +63,7 @@
 					<UserPlusIcon class="w-6 h-6 text-[#CAF0F8]" />
 				</div>
 			</div>
-		</div>
+		</a>
 
 		<!-- 2. Brand Title & Subtitle -->
 		<div class="text-center mb-6">
@@ -179,12 +189,20 @@
 				</form>
 			</LiquidGlassCard>
 
-			<!-- 4. Footer: Link back to login -->
-			<div class="mt-6 text-center text-xs text-[#90E0EF]">
-				<span>Sudah punya akun?</span>
-				<a href="/login" class="font-bold text-[#FF9F1C] hover:underline ml-1">
-					Masuk di sini
-				</a>
+			<!-- 4. Footer: Link back to login & landing page -->
+			<div class="mt-6 text-center text-xs text-[#90E0EF] space-y-2.5">
+				<div>
+					<span>Sudah punya akun?</span>
+					<a href="/login" class="font-bold text-[#FF9F1C] hover:underline ml-1">
+						Masuk di sini
+					</a>
+				</div>
+				<div class="pt-2 border-t border-white/10">
+					<a href="/" class="inline-flex items-center gap-1.5 text-xs text-[#90E0EF]/70 hover:text-white transition font-medium">
+						<ArrowLeftIcon class="w-3 h-3" />
+						<span>Kembali ke Halaman Utama LineSpot</span>
+					</a>
+				</div>
 			</div>
 		</div>
 	</div>

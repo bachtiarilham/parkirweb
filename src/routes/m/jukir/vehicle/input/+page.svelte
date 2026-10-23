@@ -9,7 +9,7 @@
 	import BikeIcon from '@lucide/svelte/icons/bike';
 	import TruckIcon from '@lucide/svelte/icons/truck';
 	import { formatCurrency } from '$lib/utils/format-currency';
-	import { API_ENDPOINTS } from '$lib/api/endpoints.js';
+	import { deserialize } from '$app/forms';
 
 	let { data } = $props();
 
@@ -17,7 +17,9 @@
 	$effect(() => {
 		plateNumber = data.plateNumber || '';
 	});
-	let selectedVehicle = $state<'MOTOR' | 'MOBIL' | 'TRUK'>('MOTOR');
+
+	// Vehicle type selection (MOTOR, MOBIL, TRUCK sesuai standar server)
+	let selectedVehicle = $state<'MOTOR' | 'MOBIL' | 'TRUCK'>('MOTOR');
 	let isSubmitting = $state(false);
 	let errorMessage = $state<string | null>(null);
 
@@ -29,13 +31,42 @@
 		minute: '2-digit'
 	});
 
-	const vehicleTariffs = {
-		MOTOR: { name: 'Motor', price: 2000, label: 'Rp 2.000 / jam' },
-		MOBIL: { name: 'Mobil', price: 5000, label: 'Rp 5.000 / jam' },
-		TRUK: { name: 'Truk / Bus', price: 10000, label: 'Rp 10.000 / jam' }
-	};
+	// Dynamic tariffs map retrieved directly from server endpoint GET /tariffs
+	const tariffsMap = $derived.by(() => {
+		const rawTariffs: any[] = data.tariffs || [];
 
-	import { deserialize } from '$app/forms';
+		// Default fallback values jika database belum memiliki data tarif untuk cabang ini
+		const result: Record<'MOTOR' | 'MOBIL' | 'TRUCK', { name: string; price: number; isFlat: boolean; label: string }> = {
+			MOTOR: { name: 'Motor', price: 2000, isFlat: true, label: 'Rp 2.000 / flat' },
+			MOBIL: { name: 'Mobil', price: 5000, isFlat: true, label: 'Rp 5.000 / flat' },
+			TRUCK: { name: 'Truk / Bus', price: 10000, isFlat: true, label: 'Rp 10.000 / flat' }
+		};
+
+		if (Array.isArray(rawTariffs)) {
+			for (const t of rawTariffs) {
+				if (!t || !t.vehicle_type) continue;
+				const vt = String(t.vehicle_type).toUpperCase();
+				const baseFare = Number(t.base_fare || 0);
+				const hourlyFare = Number(t.hourly_fare || 0);
+				const isFlat = Boolean(t.is_price_flat || hourlyFare === 0);
+				const effectivePrice = baseFare > 0 ? baseFare : (hourlyFare > 0 ? hourlyFare : 2000);
+				const priceFormatted = formatCurrency(effectivePrice);
+				const label = isFlat ? `${priceFormatted} / flat` : `${priceFormatted} / jam`;
+
+				if (vt === 'MOTOR' || vt === 'MOTORCYCLE') {
+					result.MOTOR = { name: 'Motor', price: effectivePrice, isFlat, label };
+				} else if (vt === 'MOBIL' || vt === 'CAR') {
+					result.MOBIL = { name: 'Mobil', price: effectivePrice, isFlat, label };
+				} else if (vt === 'TRUCK' || vt === 'TRUK' || vt === 'BUS') {
+					result.TRUCK = { name: 'Truk / Bus', price: effectivePrice, isFlat, label };
+				}
+			}
+		}
+
+		return result;
+	});
+
+	const currentTariff = $derived(tariffsMap[selectedVehicle] || tariffsMap.MOTOR);
 
 	async function handleSubmit() {
 		const cleanPlate = plateNumber.trim().toUpperCase();
@@ -54,12 +85,18 @@
 			}
 
 			const idempotencyKey = `chk_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+			const tenantId = data.user?.tenantId || 1;
 			const branchId = data.user?.branchId || 1;
+			const officerUserId = data.user?.id || data.user?.user_id || 1;
+			const amount = currentTariff.price;
 
 			const formData = new FormData();
 			formData.append('plate_number', cleanPlate);
 			formData.append('vehicle_type', selectedVehicle);
+			formData.append('tenant_id', String(tenantId));
 			formData.append('branch_id', String(branchId));
+			formData.append('officer_user_id', String(officerUserId));
+			formData.append('amount', String(amount));
 			formData.append('idempotency_key', idempotencyKey);
 
 			const res = await fetch('?/checkin', {
@@ -73,14 +110,20 @@
 
 			if (result.type === 'success' && dataRes.success) {
 				const sessionData = dataRes.data || {};
-				const sessionId = sessionData.id || `TKT-${Date.now()}`;
+				const sessionId = sessionData.session?.id || sessionData.id || `TKT-${Date.now()}`;
 				const snapToken = sessionData.snap_token || '';
-				const amount = vehicleTariffs[selectedVehicle].price;
+				const redirectUrl = sessionData.snap_redirect_url || '';
 
-				// Navigate to JukirSessionDetail screen matching Screen.JukirSessionDetail.createRoute
+				// Jika server mengembalikan snap_redirect_url (Midtrans Snap payment), langsung buka URL pembayaran
+				if (redirectUrl) {
+					window.location.href = redirectUrl;
+					return;
+				}
+
+				// Jika tidak ada redirect URL (misal cash atau member gratis), navigasi ke detail sesi
 				goto(`/m/jukir/session/detail/${sessionId}?snapToken=${encodeURIComponent(snapToken)}&amount=${amount}`);
 			} else {
-				errorMessage = dataRes.message || 'Gagal memulai sesi parkir. Silakan coba lagi.';
+				errorMessage = dataRes.message || result?.data?.message || 'Gagal memulai sesi parkir. Silakan coba lagi.';
 			}
 		} catch (err: any) {
 			errorMessage = err.message || 'Terjadi kesalahan jaringan. Periksa koneksi Anda.';
@@ -134,11 +177,16 @@
 		</div>
 	</div>
 
-	<!-- ── 4. Jenis Kendaraan Section (VehicleSelector) ─────────────── -->
+	<!-- ── 4. Jenis Kendaraan Section (Dynamic VehicleSelector from Server Tariffs) ── -->
 	<div class="space-y-2">
-		<span class="text-xs font-black text-[#03045E] uppercase tracking-wider block px-1">
-			Jenis Kendaraan
-		</span>
+		<div class="flex items-center justify-between px-1">
+			<span class="text-xs font-black text-[#03045E] uppercase tracking-wider">
+				Jenis Kendaraan
+			</span>
+			<span class="text-[10px] text-slate-500 font-semibold">
+				{tariffsMap[selectedVehicle].isFlat ? 'Tarif Flat' : 'Tarif Per Jam'}
+			</span>
+		</div>
 
 		<div class="grid grid-cols-3 gap-2.5">
 			<!-- Motor Chip -->
@@ -149,7 +197,7 @@
 			>
 				<BikeIcon class="w-6 h-6 mb-1 {selectedVehicle === 'MOTOR' ? 'text-[#0077B6]' : 'text-slate-500'}" />
 				<span class="text-xs font-black {selectedVehicle === 'MOTOR' ? 'text-[#0077B6]' : 'text-slate-700'}">Motor</span>
-				<span class="text-[10px] text-slate-500 mt-0.5">Rp 2.000</span>
+				<span class="text-[10px] text-slate-500 mt-0.5">{formatCurrency(tariffsMap.MOTOR.price)}</span>
 			</button>
 
 			<!-- Mobil Chip -->
@@ -160,18 +208,18 @@
 			>
 				<CarIcon class="w-6 h-6 mb-1 {selectedVehicle === 'MOBIL' ? 'text-[#0077B6]' : 'text-slate-500'}" />
 				<span class="text-xs font-black {selectedVehicle === 'MOBIL' ? 'text-[#0077B6]' : 'text-slate-700'}">Mobil</span>
-				<span class="text-[10px] text-slate-500 mt-0.5">Rp 5.000</span>
+				<span class="text-[10px] text-slate-500 mt-0.5">{formatCurrency(tariffsMap.MOBIL.price)}</span>
 			</button>
 
 			<!-- Truk Chip -->
 			<button
 				type="button"
-				onclick={() => (selectedVehicle = 'TRUK')}
-				class="flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition active:scale-95 {selectedVehicle === 'TRUK' ? 'border-[#0077B6] bg-sky-50/80 shadow-md shadow-sky-600/20' : 'border-slate-200 bg-white/70 hover:bg-white text-slate-600'}"
+				onclick={() => (selectedVehicle = 'TRUCK')}
+				class="flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition active:scale-95 {selectedVehicle === 'TRUCK' ? 'border-[#0077B6] bg-sky-50/80 shadow-md shadow-sky-600/20' : 'border-slate-200 bg-white/70 hover:bg-white text-slate-600'}"
 			>
-				<TruckIcon class="w-6 h-6 mb-1 {selectedVehicle === 'TRUK' ? 'text-[#0077B6]' : 'text-slate-500'}" />
-				<span class="text-xs font-black {selectedVehicle === 'TRUK' ? 'text-[#0077B6]' : 'text-slate-700'}">Truk</span>
-				<span class="text-[10px] text-slate-500 mt-0.5">Rp 10.000</span>
+				<TruckIcon class="w-6 h-6 mb-1 {selectedVehicle === 'TRUCK' ? 'text-[#0077B6]' : 'text-slate-500'}" />
+				<span class="text-xs font-black {selectedVehicle === 'TRUCK' ? 'text-[#0077B6]' : 'text-slate-700'}">Truk</span>
+				<span class="text-[10px] text-slate-500 mt-0.5">{formatCurrency(tariffsMap.TRUCK.price)}</span>
 			</button>
 		</div>
 	</div>
@@ -207,7 +255,7 @@
 			<div>
 				<div class="text-[11px] text-[#64748B] font-semibold">Total Tarif Parkir</div>
 				<div class="text-xl font-black text-[#0077B6] mt-0.5">
-					{vehicleTariffs[selectedVehicle].label}
+					{currentTariff.label}
 				</div>
 			</div>
 			<span class="bg-sky-100 text-[#0077B6] text-[10px] font-black uppercase px-2.5 py-1 rounded-full border border-sky-200">

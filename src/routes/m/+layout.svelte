@@ -21,14 +21,13 @@
 	const isUserJukir = $derived(
 		(data.user?.role || '').toUpperCase().includes('OFFICER') ||
 		(data.user?.role || '').toUpperCase().includes('JUKIR') ||
-		pathname.startsWith('/m/jukir') ||
-		pathname.startsWith('/m/dashboardjukir')
+		pathname.startsWith('/m/jukir')
 	);
 
 	// In Android, JukirBottomNavBar is only visible on main home and settings screen
 	const showJukirNavBar = $derived(
 		isUserJukir &&
-		(pathname === '/m/jukir' || pathname === '/m/dashboardjukir' || pathname === '/m/settings/profile')
+		(pathname === '/m/jukir' || pathname === '/m/settings/profile')
 	);
 
 	const activeTab = $derived(
@@ -155,7 +154,7 @@
 								<div class="flex items-center justify-between relative">
 									<!-- Tab 1: Home -->
 									<a
-										href={pathname.startsWith('/m/dashboardjukir') ? '/m/dashboardjukir' : '/m/jukir'}
+										href="/m/jukir"
 										class="flex-1 py-2 rounded-full text-center transition flex flex-col items-center justify-center {activeTab === 'HOME' ? 'bg-[#0077B6] text-white font-black shadow-md shadow-[#0077B6]/40' : 'text-[#64748B] hover:text-[#03045E] font-medium'}"
 									>
 										<HomeIcon class="w-4 h-4 mb-0.5" />

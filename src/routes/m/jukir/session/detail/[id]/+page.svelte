@@ -222,7 +222,7 @@
 		txCode={data.id}
 		plateNumber={data.plateNumber}
 		branchName="Area Tepi Jalan"
-		amount={data.amount || 2000}
+		amount={Number(data.amount) || 2000}
 		paymentMethod="QRIS Dinamis / Tunai"
 		transactionTime={new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB'}
 		onClose={() => goto('/m/jukir')}

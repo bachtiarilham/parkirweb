@@ -17,15 +17,33 @@ export const transactionsService = {
 
 		if (typeof tokenOrParams === "string" || tokenOrParams === null) {
 			token = tokenOrParams;
-			params = paramsOrOptions as Record<string, any> | undefined;
-			fetchFn = options.fetch;
+			if (paramsOrOptions && ("fetch" in paramsOrOptions || "token" in paramsOrOptions)) {
+				fetchFn = (paramsOrOptions as any).fetch;
+				token = (paramsOrOptions as any).token ?? token;
+			} else {
+				params = paramsOrOptions as Record<string, any> | undefined;
+				fetchFn = options.fetch;
+				token = options.token ?? token;
+			}
 		} else if (typeof tokenOrParams === "object" && tokenOrParams !== null) {
-			params = tokenOrParams;
-			const opts = paramsOrOptions as { fetch?: typeof fetch; token?: string | null } | undefined;
-			fetchFn = opts?.fetch;
-			token = opts?.token;
+			// Deteksi apakah argumen pertama adalah options { fetch, token }
+			if ("fetch" in tokenOrParams && typeof (tokenOrParams as any).fetch === "function") {
+				fetchFn = (tokenOrParams as any).fetch;
+				token = (tokenOrParams as any).token;
+				params = paramsOrOptions as Record<string, any> | undefined;
+			} else {
+				params = tokenOrParams;
+				const opts = paramsOrOptions as { fetch?: typeof fetch; token?: string | null } | undefined;
+				fetchFn = opts?.fetch;
+				token = opts?.token;
+			}
 		} else {
 			fetchFn = options.fetch;
+		}
+
+		if (params && "fetch" in params) {
+			const { fetch: _, ...rest } = params as any;
+			params = rest;
 		}
 
 		return apiClient<PayTransaction[]>(

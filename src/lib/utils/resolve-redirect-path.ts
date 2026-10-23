@@ -3,8 +3,8 @@
  * 1. system -> /dashboard/system
  * 2. tenant -> /dashboard/tenant
  * 3. branch -> /dashboard/branch
- * 4. jukir -> /m/dashboardjukir
- * 5. customer -> /m/dashboardcustomer
+ * 4. jukir -> /m/jukir
+ * 5. customer -> /m/customer
  */
 export function resolveRedirectPath(
 	roleCode: string | null | undefined,
@@ -29,9 +29,9 @@ export function resolveRedirectPath(
 	}
 
 	if (rawRole.includes('OFFICER') || rawRole.includes('JUKIR') || rawRole.includes('OPERATOR')) {
-		return '/m/dashboardjukir';
+		return '/m/jukir';
 	}
 
 	// Default role (CUSTOMER, MEMBER, USER, dll)
-	return '/m/dashboardcustomer';
+	return '/m/customer';
 }

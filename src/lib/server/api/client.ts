@@ -82,7 +82,12 @@ export async function apiClient<T = unknown>(
 	if (params) {
 		const searchParams = new URLSearchParams();
 		for (const [key, value] of Object.entries(params)) {
-			if (value !== undefined && value !== null) {
+			if (
+				value !== undefined &&
+				value !== null &&
+				typeof value !== "function" &&
+				key !== "fetch"
+			) {
 				searchParams.append(key, String(value));
 			}
 		}
@@ -145,10 +150,14 @@ export async function apiClient<T = unknown>(
 				? (responseJson as Record<string, unknown>)
 				: null;
 
-		const errorMessage =
+		let errorMessage =
 			(typeof errObj?.message === "string" && errObj.message) ||
 			(typeof errObj?.error === "string" && errObj.error) ||
 			`Request backend gagal dengan status ${response.status}`;
+
+		if (typeof errObj?.error_detail === "string" && errObj.error_detail) {
+			errorMessage = errObj.error_detail;
+		}
 
 		const errors = (errObj?.errors ?? undefined) as Record<string, unknown> | string[] | string | undefined;
 		const errorData = errObj?.data;

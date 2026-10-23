@@ -12,17 +12,25 @@ import { resolveRedirectPath } from "$lib/utils/resolve-redirect-path.js";
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types.js";
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ parent, url }) => {
+	const { user } = await parent();
+	const redirectTo = url.searchParams.get("redirectTo");
+
+	if (user) {
+		const target = resolveRedirectPath(user.role_code, redirectTo);
+		redirect(302, target);
+	}
 	return {};
 };
 
 export const actions: Actions = {
-	default: async ({ request, cookies, fetch, locals }) => {
+	default: async ({ request, cookies, fetch, locals, url }) => {
 		const formData = await request.formData();
 		const name = formData.get("name")?.toString() || "";
 		const email = formData.get("email")?.toString() || "";
 		const username = formData.get("username")?.toString() || "";
 		const password = formData.get("password")?.toString() || "";
+		const redirectTo = url.searchParams.get("redirectTo") || formData.get("redirectTo")?.toString() || null;
 
 		const parseResult = RegisterSchema.safeParse({
 			name,
@@ -112,7 +120,7 @@ export const actions: Actions = {
 				});
 			}
 
-			const target = resolveRedirectPath(parsedJwt?.role_code);
+			const target = resolveRedirectPath(parsedJwt?.role_code, redirectTo);
 			redirect(302, target);
 		} catch (err: any) {
 			if (err?.status === 302 || err?.location) throw err;

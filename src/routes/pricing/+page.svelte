@@ -1,6 +1,7 @@
 <script lang="ts">
-	import Header from "$lib/components/landing/header.svelte";
-	import Footer from "$lib/components/landing/footer.svelte";
+	import ZenHeader from "$lib/components/landing/zen-header.svelte";
+	import ZenFooter from "$lib/components/landing/zen-footer.svelte";
+	import CheckCircle2Icon from "@lucide/svelte/icons/check-circle-2";
 	import * as Card from "$lib/components/ui/card/index.js";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Badge } from "$lib/components/ui/badge/index.js";
@@ -32,6 +33,31 @@
 	const plans = $derived(data.plans || []);
 	const isLoggedIn = $derived(Boolean(data.isLoggedIn));
 	const user = $derived(data.user);
+
+	// State Modal Request Demo
+	let isDemoModalOpen = $state(false);
+	let demoName = $state("");
+	let demoEmail = $state("");
+	let demoCompany = $state("");
+	let isDemoSubmitted = $state(false);
+
+	function handleDemoSubmit(e: Event) {
+		e.preventDefault();
+		isDemoSubmitted = true;
+	}
+
+	function resetDemoForm() {
+		demoName = "";
+		demoEmail = "";
+		demoCompany = "";
+		isDemoSubmitted = false;
+		isDemoModalOpen = false;
+	}
+
+	function openDemo() {
+		isDemoSubmitted = false;
+		isDemoModalOpen = true;
+	}
 
 	// State modal login alert (jika belum login)
 	let isLoginAlertOpen = $state(false);
@@ -217,9 +243,9 @@
 </svelte:head>
 
 <div class="flex min-h-screen w-full flex-col overflow-x-hidden bg-background">
-	<Header {isLoggedIn} {user} />
+	<ZenHeader {isLoggedIn} {user} onRequestDemo={openDemo} />
 
-	<main class="grow">
+	<main class="grow pt-24 sm:pt-28">
 		<!-- Info Banner untuk Tamu / Public User -->
 		{#if !isLoggedIn}
 			<div class="bg-primary/5 border-b border-primary/20 px-4 py-2.5">
@@ -325,7 +351,7 @@
 											Pilih {plan.member_rider_plan_name}
 										{:else}
 											<LockIcon class="size-4 mr-1.5 opacity-70" />
-											Masuk untuk Berlangganan
+											Registrasi Akun Diperlukan
 										{/if}
 										<ArrowRightIcon class="ml-2 size-4" />
 									</Button>
@@ -589,10 +615,10 @@
 					<LogInIcon class="size-6" />
 				</div>
 				<AlertDialog.Title class="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-					Masuk untuk Berlangganan
+					Registrasi Akun Diperlukan
 				</AlertDialog.Title>
 				<AlertDialog.Description class="text-sm text-muted-foreground leading-relaxed">
-					Untuk membeli paket <strong>{pendingPlan?.member_rider_plan_name || "Membership"}</strong>, Anda perlu masuk ke akun Anda terlebih dahulu agar data kendaraan, kuota parkir, dan pembayaran terhubung ke profil Anda.
+					Untuk membeli paket <strong>{pendingPlan?.member_rider_plan_name || "Membership"}</strong>, Anda wajib memiliki akun terlebih dahulu agar data plat nomor kendaraan dan akses gerbang otomatis terhubung ke profil Anda.
 				</AlertDialog.Description>
 			</AlertDialog.Header>
 
@@ -611,24 +637,113 @@
 					Batal
 				</AlertDialog.Cancel>
 				<Button
-					href={`/register?redirectTo=/pricing`}
+					href={`/login?redirectTo=/pricing`}
 					variant="outline"
 					class="rounded-xl gap-1.5"
 				>
-					<UserPlusIcon class="size-4" />
-					Daftar Akun Baru
+					<LogInIcon class="size-4" />
+					Sudah Punya Akun? Masuk
 				</Button>
 				<Button
-					href={`/login?redirectTo=/pricing`}
+					href={`/register?redirectTo=/pricing`}
 					variant="default"
-					class="rounded-xl gap-1.5 font-semibold"
+					class="rounded-xl gap-1.5 font-semibold bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-sm"
 				>
-					<LogInIcon class="size-4" />
-					Masuk (Login)
+					<UserPlusIcon class="size-4" />
+					Daftar Akun Baru (Wajib)
 				</Button>
 			</AlertDialog.Footer>
 		</AlertDialog.Content>
 	</AlertDialog.Root>
 
-	<Footer />
+	<ZenFooter />
+
+	<!-- Modal Request Demo -->
+	<Dialog.Root bind:open={isDemoModalOpen} onOpenChange={(open) => { if (!open) resetDemoForm(); }}>
+		<Dialog.Content class="sm:max-w-md rounded-3xl p-6 sm:p-8 bg-white text-slate-900 border border-slate-200 shadow-2xl">
+			<Dialog.Header class="space-y-2 text-left">
+				<Dialog.Title class="text-xl font-black text-slate-950 tracking-tight">
+					Jadwalkan Demo Platform
+				</Dialog.Title>
+				<Dialog.Description class="text-xs text-slate-500 leading-relaxed">
+					Pelajari bagaimana solusi mobilitas pintar dan kamera LPR Line Parking mengoptimalkan pendapatan serta efisiensi lahan parkir Anda.
+				</Dialog.Description>
+			</Dialog.Header>
+
+			{#if isDemoSubmitted}
+				<div class="py-8 text-center space-y-3">
+					<div class="size-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+						<CheckCircle2Icon class="size-6" />
+					</div>
+					<h3 class="text-base font-bold text-slate-950">Permintaan Demo Terkirim!</h3>
+					<p class="text-xs text-slate-600 max-w-xs mx-auto">
+						Terima kasih, tim spesialis Line Parking akan menghubungi Anda melalui email <strong>{demoEmail}</strong> dalam 1x24 jam kerja.
+					</p>
+					<div class="pt-2">
+						<button
+							type="button"
+							onclick={resetDemoForm}
+							class="rounded-full bg-slate-900 text-white text-xs font-semibold px-6 py-2"
+						>
+							Tutup
+						</button>
+					</div>
+				</div>
+			{:else}
+				<form onsubmit={handleDemoSubmit} class="space-y-3.5 mt-2">
+					<div class="space-y-1 text-left">
+						<label for="p-name" class="text-xs font-bold text-slate-700">Nama Lengkap</label>
+						<input
+							id="p-name"
+							type="text"
+							required
+							bind:value={demoName}
+							placeholder="Budi Santoso"
+							class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-slate-900 focus:outline-none transition"
+						/>
+					</div>
+
+					<div class="space-y-1 text-left">
+						<label for="p-email" class="text-xs font-bold text-slate-700">Email Instansi / Perusahaan</label>
+						<input
+							id="p-email"
+							type="email"
+							required
+							bind:value={demoEmail}
+							placeholder="budi@instansi.go.id"
+							class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-slate-900 focus:outline-none transition"
+						/>
+					</div>
+
+					<div class="space-y-1 text-left">
+						<label for="p-org" class="text-xs font-bold text-slate-700">Nama Gedung / Dishub / Badan Usaha</label>
+						<input
+							id="p-org"
+							type="text"
+							required
+							bind:value={demoCompany}
+							placeholder="Grand Mall Surabaya / Dishub Kota"
+							class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-slate-900 focus:outline-none transition"
+						/>
+					</div>
+
+					<div class="pt-4 flex items-center justify-end gap-3">
+						<button
+							type="button"
+							onclick={() => (isDemoModalOpen = false)}
+							class="rounded-full px-4 py-2.5 text-xs font-medium text-slate-500 hover:text-slate-800 transition"
+						>
+							Batal
+						</button>
+						<button
+							type="submit"
+							class="rounded-full bg-slate-900 hover:bg-slate-800 px-7 py-2.5 text-xs font-bold text-white transition-all cursor-pointer shadow-sm active:scale-95"
+						>
+							Kirim Jadwal Demo
+						</button>
+					</div>
+				</form>
+			{/if}
+		</Dialog.Content>
+	</Dialog.Root>
 </div>

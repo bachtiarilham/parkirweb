@@ -2,6 +2,7 @@
 	import * as Sheet from "$lib/components/ui/sheet/index.js";
 	import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
 	import MenuIcon from "@lucide/svelte/icons/menu";
+	import { page } from "$app/state";
 
 	let {
 		isLoggedIn = false,
@@ -19,12 +20,15 @@
 	}>();
 
 	let mobileMenuOpen = $state(false);
+	const currentPath = $derived(page.url.pathname);
 
 	function scrollTo(id: string) {
 		mobileMenuOpen = false;
 		const el = document.getElementById(id);
 		if (el) {
 			el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		} else {
+			window.location.href = `/#${id}`;
 		}
 	}
 </script>
@@ -56,6 +60,12 @@
 					<span>Teknologi</span>
 					<ChevronDownIcon class="size-3 text-slate-500" />
 				</button>
+				<a
+					href="/pricing"
+					class="transition cursor-pointer font-medium {currentPath.startsWith('/pricing') ? 'font-bold text-amber-600' : 'hover:text-slate-950 text-slate-800'}"
+				>
+					Pricing
+				</a>
 				<button type="button" onclick={() => scrollTo('insights')} class="flex items-center gap-1 hover:text-slate-950 transition cursor-pointer">
 					<span>Wawasan</span>
 					<ChevronDownIcon class="size-3 text-slate-500" />
@@ -115,12 +125,23 @@
 		<div class="space-y-4 text-center">
 			<button type="button" onclick={() => scrollTo('pillars')} class="block w-full py-2 text-base font-semibold">Solusi</button>
 			<button type="button" onclick={() => scrollTo('pillars')} class="block w-full py-2 text-base font-semibold">Teknologi</button>
+			<a
+				href="/pricing"
+				onclick={() => (mobileMenuOpen = false)}
+				class="block w-full py-2 text-base font-bold text-amber-600 hover:text-amber-700 transition"
+			>
+				Pricing & Paket
+			</a>
 			<button type="button" onclick={() => scrollTo('insights')} class="block w-full py-2 text-base font-semibold">Wawasan</button>
 			<button type="button" onclick={() => scrollTo('stories')} class="block w-full py-2 text-base font-semibold">Klien & Mitra</button>
 			<button type="button" onclick={() => scrollTo('footer')} class="block w-full py-2 text-base font-semibold">Perusahaan</button>
 			<div class="pt-4 border-t border-slate-100 flex justify-center gap-3">
-				<a href="/login" class="px-5 py-2 rounded-full border border-slate-300 text-xs font-bold">Sign In</a>
-				<button type="button" onclick={() => { mobileMenuOpen = false; onRequestDemo(); }} class="px-5 py-2 rounded-full bg-slate-900 text-white text-xs font-bold">Get a Demo</button>
+				{#if isLoggedIn}
+					<a href="/dashboard/member" class="px-5 py-2 rounded-full bg-slate-900 text-white text-xs font-bold">Dashboard</a>
+				{:else}
+					<a href="/login" class="px-5 py-2 rounded-full border border-slate-300 text-xs font-bold">Sign In</a>
+				{/if}
+				<button type="button" onclick={() => { mobileMenuOpen = false; onRequestDemo(); }} class="px-5 py-2 rounded-full bg-[#FACC15] text-slate-950 text-xs font-bold shadow-sm">Get a Demo</button>
 			</div>
 		</div>
 	</Sheet.Content>

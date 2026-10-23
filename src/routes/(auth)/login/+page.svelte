@@ -25,7 +25,7 @@
 			identity = 'budi@parkirv5.com';
 			password = 'password';
 		} else {
-			identity = 'jokowi@presiden.ri';
+			identity = 'rian@gmail.com';
 			password = 'password';
 		}
 	}
@@ -58,9 +58,18 @@
 <AuthLiquidGlassBackdrop>
 	<div class="min-h-screen flex flex-col justify-center items-center px-5 py-8 relative z-10">
 		
-		<!-- 1. Liquid Glass Logo Badge (92dp circular glass badge) -->
-		<div class="relative mb-4 group">
-			<div class="w-24 h-24 rounded-full bg-[#0F274E]/80 backdrop-blur-xl border-[1.5px] border-[#90E0EF]/50 shadow-2xl shadow-[#00B4D8]/30 flex items-center justify-center p-1 transition transform duration-500 hover:scale-105">
+		<!-- 0. Top Back to Home Button -->
+		<a
+			href="/"
+			class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-semibold text-[#90E0EF] hover:text-white transition backdrop-blur-md mb-5 shadow-sm group cursor-pointer"
+		>
+			<ArrowLeftIcon class="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
+			<span>Kembali ke Beranda</span>
+		</a>
+
+		<!-- 1. Liquid Glass Logo Badge (clickable to home) -->
+		<a href="/" aria-label="Kembali ke Beranda" class="relative mb-4 group block cursor-pointer" title="Kembali ke Beranda">
+			<div class="w-24 h-24 rounded-full bg-[#0F274E]/80 backdrop-blur-xl border-[1.5px] border-[#90E0EF]/50 shadow-2xl shadow-[#00B4D8]/30 flex items-center justify-center p-1 transition transform duration-500 group-hover:scale-105 group-hover:border-[#00B4D8]">
 				<!-- Specular Top Gloss -->
 				<div class="absolute inset-x-2 top-0 h-10 rounded-t-full bg-gradient-to-b from-white/40 via-white/10 to-transparent pointer-events-none"></div>
 
@@ -69,7 +78,7 @@
 					P
 				</div>
 			</div>
-		</div>
+		</a>
 
 		<!-- 2. Brand Title & Subtitle -->
 		<div class="text-center mb-6">
@@ -282,11 +291,19 @@
 			</LiquidGlassCard>
 
 			<!-- 4. Footer -->
-			<div class="mt-6 text-center text-xs text-[#90E0EF]">
-				<span>Belum punya akun?</span>
-				<a href="/register" class="font-bold text-[#FF9F1C] hover:underline ml-1">
-					Daftar Akun Baru
-				</a>
+			<div class="mt-6 text-center text-xs text-[#90E0EF] space-y-2.5">
+				<div>
+					<span>Belum punya akun?</span>
+					<a href="/register" class="font-bold text-[#FF9F1C] hover:underline ml-1">
+						Daftar Akun Baru
+					</a>
+				</div>
+				<div class="pt-2 border-t border-white/10">
+					<a href="/" class="inline-flex items-center gap-1.5 text-xs text-[#90E0EF]/70 hover:text-white transition font-medium">
+						<ArrowLeftIcon class="w-3 h-3" />
+						<span>Kembali ke Halaman Utama LineSpot</span>
+					</a>
+				</div>
 			</div>
 		</div>
 
